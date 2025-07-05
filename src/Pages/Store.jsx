@@ -6,6 +6,7 @@ const Store = () => {
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("عدد");
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -26,24 +27,25 @@ const Store = () => {
       return;
     }
 
-    const date = new Date().toISOString().split("T")[0];
+    // ✅ التاريخ حسب توقيت مصر المحلي
+    const date = new Date().toLocaleDateString('fr-CA');
+
     const existingIndex = items.findIndex(
-      (item) => item.name === name && item.date === date
+      (item) => item.name === name && item.date === date && item.unit === unit
     );
 
     if (existingIndex !== -1) {
-      // موجود → زود الكمية
       const updatedItems = [...items];
       updatedItems[existingIndex].quantity += parseInt(quantity);
       setItems(updatedItems);
     } else {
-      // جديد → أضفه
-      const newItem = { name, quantity: parseInt(quantity), date };
+      const newItem = { name, quantity: parseInt(quantity), unit, date };
       setItems([...items, newItem]);
     }
 
     setName("");
     setQuantity("");
+    setUnit("عدد");
   };
 
   const handleDelete = (index) => {
@@ -80,6 +82,10 @@ const Store = () => {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <option value="عدد">عدد</option>
+          <option value="كيلو">كيلو</option>
+        </select>
         <button onClick={handleAdd}>تسجيل الأصناف</button>
       </div>
 
@@ -97,13 +103,14 @@ const Store = () => {
             <th>التاريخ</th>
             <th>الصنف</th>
             <th>الكمية</th>
+            <th>الوحدة</th>
             <th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
           {filteredItems.length === 0 ? (
             <tr>
-              <td colSpan="4">لا توجد بيانات.</td>
+              <td colSpan="5">لا توجد بيانات.</td>
             </tr>
           ) : (
             filteredItems.map((item, index) => (
@@ -111,6 +118,7 @@ const Store = () => {
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
+                <td>{item.unit}</td>
                 <td>
                   <button onClick={() => handleDelete(index)}>🗑️</button>
                 </td>
