@@ -1,29 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css"; // نستخدم نفس الـ CSS العام
+import "./Store.css";
 
-const RequiredItems = () => {
+const TruckReceive = () => {
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("عدد");
+  const [unit, setUnit] = useState("برنيكة");
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // تحميل البيانات من Local Storage
   useEffect(() => {
-    const stored = localStorage.getItem("requiredItems");
+    const stored = localStorage.getItem("truckReceive");
     if (stored) {
       setItems(JSON.parse(stored));
     }
   }, []);
 
-  // حفظ البيانات في Local Storage
   useEffect(() => {
-    localStorage.setItem("requiredItems", JSON.stringify(items));
+    localStorage.setItem("truckReceive", JSON.stringify(items));
   }, [items]);
 
-  // إضافة صنف جديد
   const handleAdd = () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
@@ -36,10 +33,9 @@ const RequiredItems = () => {
 
     setName("");
     setQuantity("");
-    setUnit("عدد");
+    setUnit("برنيكة");
   };
 
-  // حذف صنف بباسورد
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password === "1234") {
@@ -51,7 +47,6 @@ const RequiredItems = () => {
     }
   };
 
-  // تعديل صنف بباسورد
   const handleEdit = (index) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
     if (password !== "1234") {
@@ -61,7 +56,7 @@ const RequiredItems = () => {
 
     const newName = prompt("اسم الصنف الجديد:", items[index].name);
     const newQuantity = prompt("الكمية الجديدة:", items[index].quantity);
-    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", items[index].unit);
+    const newUnit = prompt("الوحدة الجديدة:", items[index].unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
@@ -74,12 +69,11 @@ const RequiredItems = () => {
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
-      updated: true, // ✅ تعليم إنه تم التعديل
+      updated: true,
     };
     setItems(updated);
   };
 
-  // فلترة العناصر
   const filteredItems = items.filter(
     (item) =>
       item.name.includes(searchTerm) || item.date.includes(searchTerm)
@@ -88,7 +82,7 @@ const RequiredItems = () => {
   return (
     <div className="store-page">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>الاحتياجات المطلوبة من الخارج 📄</h2>
+      <h2>🏭 استلام بضاعة من المصنع</h2>
 
       <div className="form-section">
         <input
@@ -104,16 +98,17 @@ const RequiredItems = () => {
           onChange={(e) => setQuantity(e.target.value)}
         />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <option value="برنيكة">برنيكة</option>
+          <option value="صاج">صاج</option>
           <option value="عدد">عدد</option>
-          <option value="كيلو">كيلو</option>
         </select>
-        <button onClick={handleAdd}>تسجيل احتياج</button>
+        <button onClick={handleAdd}>تسجيل استلام</button>
       </div>
 
       <input
         type="text"
         className="search"
-        placeholder="اكتب اسم أو تاريخ"
+        placeholder="بحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
@@ -130,9 +125,7 @@ const RequiredItems = () => {
         </thead>
         <tbody>
           {filteredItems.length === 0 ? (
-            <tr>
-              <td colSpan="5">لا توجد بيانات.</td>
-            </tr>
+            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
             filteredItems.map((item, index) => (
               <tr
@@ -158,4 +151,4 @@ const RequiredItems = () => {
   );
 };
 
-export default RequiredItems;
+export default TruckReceive;

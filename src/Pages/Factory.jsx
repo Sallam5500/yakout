@@ -8,11 +8,11 @@ const Factory = () => {
   const sections = [
     { name: "🏬 المخزن الداخلي", path: "/factory/internal-store" },
     { name: "🧾 أوردرات التصنيع", path: "/factory/orders" },
-    { name: "🛠️ قسم الصيانة والنظافة", path: "/factory/maintenance" },
+    { name: "🛠️ قسم الصيانة والنظافة", path: "/factory/cleaning-maintenance" },
     { name: "👨‍🏭 قسم الموظفين", path: "/factory/employees" },
-    { name: "📦البضاعه المطلوبه (من الخارج) ", path: "/factory/required-goods" },
-    { name: "🚚 البضاعه الوارده (من المصنع التاني) ", path: "/factory/incoming-goods" },
-    { name: "🏗️ تحميل العربيات", path: "/factory/loading" },
+    { name: "📦البضاعه المطلوبه (من الخارج) ", path: "/factory/required-items" },
+    { name: "🚚 البضاعه الوارده (من المصنع التاني) ", path: "/factory/incoming" },
+    { name: "🏗️ تحميل العربيات", path: "/factory/truck-loading" },
   ];
 
   const handleProtectedNavigation = (path) => {

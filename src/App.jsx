@@ -15,7 +15,28 @@ import InternalStore from './Pages/InternalStore';
 import StreetStore from './Pages/StreetStore';
 import Rooms from './Pages/Rooms';
 import Employees from './Pages/Employees';
-import RequiredItems from './Pages/RequiredItems'; // ✅ صح هنا
+import RequiredItems from "./Pages/RequiredItems";
+import StockPage from "./Pages/StockPage";
+import ExportPage from "./Pages/ExportPage";
+import TruckMenu from "./Pages/TruckMenu";
+import TruckBarka from "./Pages/TruckBarka";
+import TruckQwesna from "./Pages/TruckQwesna";
+import TruckReceive from "./Pages/TruckReceive";
+import IncomingGoods from "./Pages/IncomingGoods";
+import OrdersMenu from "./Pages/OrdersMenu";
+import Eastern from "./Pages/Eastern";
+import Torte from "./Pages/Torte";
+import Gateau from "./Pages/Gateau";
+import Cuts from "./Pages/Cuts";
+import Mousse from "./Pages/Mousse";
+import FrenchMousse from "./Pages/FrenchMousse";
+import CleaningAndMaintenanceMain from "./Pages/CleaningAndMaintenanceMain";
+import Cleaning from "./Pages/Cleaning";
+import MaintenanceInternal from "./Pages/MaintenanceInternal";
+import MaintenanceExternal from "./Pages/MaintenanceExternal";
+
+
+
 
 const App = () => {
   return (
@@ -33,6 +54,9 @@ const App = () => {
 
         {/* المحلات */}
         <Route path="/shops" element={<Shops />} />
+        <Route path="/store/stock" element={<StockPage/>} />
+        <Route path="/store/exports" element={<ExportPage />} />
+
 
         {/* المصنع */}
         <Route path="/factory/internal-store" element={<InternalStore />} />
@@ -40,6 +64,24 @@ const App = () => {
         <Route path="/internal-store/rooms" element={<Rooms />} />
         <Route path="/factory/employees" element={<Employees />} />
         <Route path="/factory/required-items" element={<RequiredItems />} />
+        <Route path="/factory/truck-loading" element={<TruckMenu />} />
+        <Route path="/factory/truck-loading/barka" element={<TruckBarka />} />
+        <Route path="/factory/truck-loading/qwesna" element={<TruckQwesna />} />
+        <Route path="/factory/truck-loading/receive" element={<TruckReceive />} />
+        <Route path="/factory/incoming" element={<IncomingGoods />} />
+        <Route path="/factory/orders" element={<OrdersMenu />} />
+        <Route path="/factory/orders/eastern" element={<Eastern />} />
+        <Route path="/factory/orders/torte" element={<Torte />} />
+        <Route path="/factory/orders/gateau" element={<Gateau />} />
+        <Route path="/factory/orders/cuts" element={<Cuts />} />
+        <Route path="/factory/orders/mousse" element={<Mousse />} />
+        <Route path="/factory/orders/french-mousse" element={<FrenchMousse />} />
+        <Route path="/factory/cleaning-maintenance" element={<CleaningAndMaintenanceMain />} />
+        <Route path="/cleaning" element={<Cleaning />} />
+        <Route path="/maintenance-internal" element={<MaintenanceInternal />} />
+        <Route path="/maintenance-external" element={<MaintenanceExternal />} />
+        
+
 
         {/* صفحات المحلات الفرعية */}
         <Route path="/shops/:branchId" element={<BranchMenu />} />

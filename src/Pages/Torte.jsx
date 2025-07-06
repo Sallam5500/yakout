@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css"; // نستخدم نفس الـ CSS العام
+import "./Store.css";
 
-const RequiredItems = () => {
+const Torte = () => {
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -10,20 +10,17 @@ const RequiredItems = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // تحميل البيانات من Local Storage
   useEffect(() => {
-    const stored = localStorage.getItem("requiredItems");
+    const stored = localStorage.getItem("torteOrders");
     if (stored) {
       setItems(JSON.parse(stored));
     }
   }, []);
 
-  // حفظ البيانات في Local Storage
   useEffect(() => {
-    localStorage.setItem("requiredItems", JSON.stringify(items));
+    localStorage.setItem("torteOrders", JSON.stringify(items));
   }, [items]);
 
-  // إضافة صنف جديد
   const handleAdd = () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
@@ -39,7 +36,6 @@ const RequiredItems = () => {
     setUnit("عدد");
   };
 
-  // حذف صنف بباسورد
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password === "1234") {
@@ -51,7 +47,6 @@ const RequiredItems = () => {
     }
   };
 
-  // تعديل صنف بباسورد
   const handleEdit = (index) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
     if (password !== "1234") {
@@ -61,7 +56,7 @@ const RequiredItems = () => {
 
     const newName = prompt("اسم الصنف الجديد:", items[index].name);
     const newQuantity = prompt("الكمية الجديدة:", items[index].quantity);
-    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", items[index].unit);
+    const newUnit = prompt("الوحدة الجديدة:", items[index].unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
@@ -74,21 +69,21 @@ const RequiredItems = () => {
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
-      updated: true, // ✅ تعليم إنه تم التعديل
+      updated: true,
     };
     setItems(updated);
   };
 
-  // فلترة العناصر
   const filteredItems = items.filter(
-    (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
   return (
     <div className="store-page">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>الاحتياجات المطلوبة من الخارج 📄</h2>
+      <h2>🎂 أوردرات التورت</h2>
+      
+      <button onClick={() => window.print()} className="print-btn">🖨️ طباعة</button>
 
       <div className="form-section">
         <input
@@ -105,15 +100,16 @@ const RequiredItems = () => {
         />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
-          <option value="كيلو">كيلو</option>
+          <option value="قالب">قالب</option>
+          <option value="صينية">صينية</option>
         </select>
-        <button onClick={handleAdd}>تسجيل احتياج</button>
+        <button onClick={handleAdd}>تسجيل الصنف</button>
       </div>
 
       <input
         type="text"
         className="search"
-        placeholder="اكتب اسم أو تاريخ"
+        placeholder="بحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
@@ -130,9 +126,7 @@ const RequiredItems = () => {
         </thead>
         <tbody>
           {filteredItems.length === 0 ? (
-            <tr>
-              <td colSpan="5">لا توجد بيانات.</td>
-            </tr>
+            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
             filteredItems.map((item, index) => (
               <tr
@@ -158,4 +152,4 @@ const RequiredItems = () => {
   );
 };
 
-export default RequiredItems;
+export default Torte;

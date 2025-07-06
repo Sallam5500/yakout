@@ -1,94 +1,78 @@
+// src/pages/ExportPage.jsx
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css"; // نستخدم نفس الـ CSS العام
+import "./Store.css";
 
-const RequiredItems = () => {
-  const [items, setItems] = useState([]);
+const ExportPage = () => {
+  const [stockItems, setStockItems] = useState([]);
+  const [exportItems, setExportItems] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // تحميل البيانات من Local Storage
   useEffect(() => {
-    const stored = localStorage.getItem("requiredItems");
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    const storedStock = localStorage.getItem("storeItems");
+    const storedExports = localStorage.getItem("exportItems");
+    if (storedStock) setStockItems(JSON.parse(storedStock));
+    if (storedExports) setExportItems(JSON.parse(storedExports));
   }, []);
 
-  // حفظ البيانات في Local Storage
   useEffect(() => {
-    localStorage.setItem("requiredItems", JSON.stringify(items));
-  }, [items]);
+    localStorage.setItem("storeItems", JSON.stringify(stockItems));
+    localStorage.setItem("exportItems", JSON.stringify(exportItems));
+  }, [stockItems, exportItems]);
 
-  // إضافة صنف جديد
-  const handleAdd = () => {
+  const handleAddExport = () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date };
-    setItems([...items, newItem]);
+    const stockIndex = stockItems.findIndex(
+      (item) => item.name === name && item.unit === unit
+    );
+
+    if (stockIndex === -1 || stockItems[stockIndex].quantity < parseInt(quantity)) {
+      alert("الكمية غير متوفرة في المخزن.");
+      return;
+    }
+
+    const updatedStock = [...stockItems];
+    updatedStock[stockIndex].quantity -= parseInt(quantity);
+    setStockItems(updatedStock);
+
+    const newExport = { name, quantity: parseInt(quantity), unit, date };
+    setExportItems([...exportItems, newExport]);
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  // حذف صنف بباسورد
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234") {
-      const updated = [...items];
-      updated.splice(index, 1);
-      setItems(updated);
-    } else {
-      alert("كلمة المرور خاطئة.");
-    }
-  };
-
-  // تعديل صنف بباسورد
-  const handleEdit = (index) => {
-    const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
     if (password !== "1234") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const newName = prompt("اسم الصنف الجديد:", items[index].name);
-    const newQuantity = prompt("الكمية الجديدة:", items[index].quantity);
-    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", items[index].unit);
-
-    if (!newName || !newQuantity || !newUnit) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
-
-    const updated = [...items];
-    updated[index] = {
-      ...updated[index],
-      name: newName,
-      quantity: parseInt(newQuantity),
-      unit: newUnit,
-      updated: true, // ✅ تعليم إنه تم التعديل
-    };
-    setItems(updated);
+    const updated = [...exportItems];
+    updated.splice(index, 1);
+    setExportItems(updated);
   };
 
-  // فلترة العناصر
-  const filteredItems = items.filter(
-    (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
+  const filteredItems = exportItems.filter(
+    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
   return (
     <div className="store-page">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>الاحتياجات المطلوبة من الخارج 📄</h2>
+      <h2>📤 الصادرات</h2>
 
       <div className="form-section">
         <input
@@ -107,13 +91,13 @@ const RequiredItems = () => {
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
         </select>
-        <button onClick={handleAdd}>تسجيل احتياج</button>
+        <button onClick={handleAddExport}>تسجيل صادر</button>
       </div>
 
       <input
         type="text"
         className="search"
-        placeholder="اكتب اسم أو تاريخ"
+        placeholder="ابحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
@@ -130,23 +114,15 @@ const RequiredItems = () => {
         </thead>
         <tbody>
           {filteredItems.length === 0 ? (
-            <tr>
-              <td colSpan="5">لا توجد بيانات.</td>
-            </tr>
+            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
             filteredItems.map((item, index) => (
-              <tr
-                key={index}
-                style={{
-                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
-                }}
-              >
+              <tr key={index}>
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button onClick={() => handleEdit(index)}>✏️</button>{" "}
                   <button onClick={() => handleDelete(index)}>🗑️</button>
                 </td>
               </tr>
@@ -158,4 +134,4 @@ const RequiredItems = () => {
   );
 };
 
-export default RequiredItems;
+export default ExportPage;
