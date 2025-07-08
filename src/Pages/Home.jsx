@@ -19,6 +19,7 @@ const Home = () => {
 
   return (
     <div className="home-container">
+        <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2>الصفحة الرئيسية</h2>
       <div className="cards-container">
         <div className="card" onClick={() => handleNavigation('/store')}>المخزن الرئيسي</div>

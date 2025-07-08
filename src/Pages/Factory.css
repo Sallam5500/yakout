@@ -45,3 +45,96 @@
   cursor: pointer;
   font-size: 16px;
 }
+/* صفحة كاملة */
+.factory-page {
+  padding: 20px;
+  background: #fdfdfd;
+  min-height: 100vh;
+  font-family: 'Cairo', sans-serif;
+}
+
+/* عنوان الصفحة */
+.page-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 20px 0;
+  color: #333;
+  text-align: center;
+}
+
+/* زر الرجوع */
+.back-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.back-btn:hover {
+  background-color: #d32f2f;
+}
+
+/* تنسيق الفورم */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+  margin: 0 auto 30px auto;
+}
+
+.form-container input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.form-container button {
+  padding: 10px;
+  border: none;
+  background-color: #4caf50;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.form-container button:hover {
+  background-color: #388e3c;
+}
+
+/* جدول البيانات */
+.table-title {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #444;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  margin: auto;
+}
+
+.data-table th, .data-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+}
+
+.data-table th {
+  background-color: #f0f0f0;
+  color: #222;
+}
+
+.data-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}

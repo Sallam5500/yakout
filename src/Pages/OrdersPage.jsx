@@ -10,7 +10,7 @@ const OrdersPage = () => {
   const storageKey = `${branchId}_orders`;
   const deletePassword = "delete123";
 
-  const [formData, setFormData] = useState({ product: '', quantity: '' });
+  const [formData, setFormData] = useState({ product: '', quantity: '', unit: 'عدد', note: '' });
   const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [editIndex, setEditIndex] = useState(null);
@@ -42,12 +42,17 @@ const OrdersPage = () => {
 
     setOrders(updated);
     localStorage.setItem(storageKey, JSON.stringify(updated));
-    setFormData({ product: '', quantity: '' });
+    setFormData({ product: '', quantity: '', unit: 'عدد', note: '' });
   };
 
   const handleEdit = (index) => {
     const item = orders[index];
-    setFormData({ product: item.product, quantity: item.quantity });
+    setFormData({ 
+      product: item.product, 
+      quantity: item.quantity, 
+      unit: item.unit || 'عدد', 
+      note: item.note || '' 
+    });
     setEditIndex(index);
   };
 
@@ -87,6 +92,22 @@ const OrdersPage = () => {
           onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
           required
         />
+        <select
+          value={formData.unit}
+          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+        >
+          <option>عدد</option>
+          <option>سيرفيز</option>
+          <option>برنيكة</option>
+          <option>كيلو</option>
+          <option>صاج</option>
+        </select>
+        <input
+          type="text"
+          placeholder="بيان / ملاحظات"
+          value={formData.note}
+          onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+        />
         <button type="submit">{editIndex !== null ? 'تحديث' : 'تسجيل الأوردر'}</button>
       </form>
 
@@ -104,6 +125,8 @@ const OrdersPage = () => {
             <th>التاريخ</th>
             <th>الصنف</th>
             <th>الكمية</th>
+            <th>الوحدة</th>
+            <th>البيان</th>
             <th>إجراءات</th>
           </tr>
         </thead>
@@ -113,6 +136,8 @@ const OrdersPage = () => {
               <td>{item.date}</td>
               <td>{item.product}</td>
               <td>{item.quantity}</td>
+              <td>{item.unit || '-'}</td>
+              <td>{item.note || '-'}</td>
               <td>
                 <button onClick={() => handleEdit(index)} style={{ marginRight: '8px' }}>✏</button>
                 <button onClick={() => handleDelete(index)}>🗑</button>

@@ -6,10 +6,12 @@ import "./Factory.css"; // نفس تنسيقات الكروت
 const InternalStore = () => {
   const navigate = useNavigate();
 
-  const sections = [
-    { name: "🏪 المخزن اللي في الشارع", path: "/internal-store/street-store" },
-    { name: "🚪 قسم الغرف", path: "/internal-store/rooms" },
-  ];
+ const sections = [
+  { name: "🏪 المخزن اللي في الشارع", path: "/internal-store/street-store" },
+  { name: "🚪 قسم الغرف", path: "/internal-store/rooms" },
+  { name: "📤 الصادر من المخزن", path: "/internal-store/street-out" },
+  { name: "📤 الصادر من الغرف", path: "/internal-store/rooms-out" },
+];
 
   return (
     <div className="factory-page">

@@ -23,6 +23,7 @@ const Shops = () => {
 
   return (
     <div className="shops-container">
+        <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2>اختار الفرع</h2>
       <div className="branches">
         <button onClick={() => setSelectedBranch('barkasaba')}>فرع بركة السبع</button>

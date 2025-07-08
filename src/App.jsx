@@ -34,6 +34,10 @@ import CleaningAndMaintenanceMain from "./Pages/CleaningAndMaintenanceMain";
 import Cleaning from "./Pages/Cleaning";
 import MaintenanceInternal from "./Pages/MaintenanceInternal";
 import MaintenanceExternal from "./Pages/MaintenanceExternal";
+import RoomsOut from './Pages/RoomsOut';
+import StreetOut from './Pages/StreetOut';
+import BranchReceive from "./Pages/BranchReceive";
+
 
 
 
@@ -62,6 +66,8 @@ const App = () => {
         <Route path="/factory/internal-store" element={<InternalStore />} />
         <Route path="/internal-store/street-store" element={<StreetStore />} />
         <Route path="/internal-store/rooms" element={<Rooms />} />
+        <Route path="/internal-store/street-out" element={<StreetOut />} />
+         <Route path="/internal-store/rooms-out" element={<RoomsOut/>} />
         <Route path="/factory/employees" element={<Employees />} />
         <Route path="/factory/required-items" element={<RequiredItems />} />
         <Route path="/factory/truck-loading" element={<TruckMenu />} />
@@ -87,6 +93,8 @@ const App = () => {
         <Route path="/shops/:branchId" element={<BranchMenu />} />
         <Route path="/shops/:branchId/inventory" element={<InventoryPage />} />
         <Route path="/shops/:branchId/orders" element={<OrdersPage />} />
+        <Route path="/shops/:branchId/receive" element={<BranchReceive />} />
+
       </Routes>
     </Router>
   );
