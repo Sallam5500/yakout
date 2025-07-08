@@ -1,8 +1,6 @@
-// src/pages/StockPage.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 const StockPage = () => {
   const [stockItems, setStockItems] = useState([]);
@@ -35,6 +33,7 @@ const StockPage = () => {
     if (existingIndex !== -1) {
       const updated = [...stockItems];
       updated[existingIndex].quantity += parseInt(quantity);
+      updated[existingIndex].updated = true;
       setStockItems(updated);
     } else {
       const newItem = { name, quantity: parseInt(quantity), unit, date };
@@ -48,7 +47,7 @@ const StockPage = () => {
 
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password !== "1234") {
+    if (password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
@@ -59,15 +58,20 @@ const StockPage = () => {
   };
 
   const filteredItems = stockItems.filter(
-    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) =>
+      item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
-  return (
-    <div className="store-page">
-      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>📦 البضاعة (المخزون الرئيسي)</h2>
+  const handlePrint = () => {
+    window.print();
+  };
 
-      <div className="form-section">
+  return (
+    <div className="factory-page">
+      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">📦 البضاعة (المخزون الرئيسي)</h2>
+
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم الصنف"
@@ -84,25 +88,28 @@ const StockPage = () => {
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
         </select>
-        <button onClick={handleAddStock}>إضافة للمخزن</button>
+        <button onClick={handleAddStock}>➕ إضافة للمخزن</button>
       </div>
 
-      <input
-        type="text"
-        className="search"
-        placeholder="ابحث بالاسم أو التاريخ"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      <div className="form-row">
+        <input
+          type="text"
+          className="search"
+          placeholder="🔍 ابحث بالاسم أو التاريخ"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <button onClick={handlePrint}>🖨️ طباعة</button>
+      </div>
 
-      <table className="items-table">
+      <table className="styled-table">
         <thead>
           <tr>
-            <th>التاريخ</th>
-            <th>الصنف</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>إجراءات</th>
+            <th>📅 التاريخ</th>
+            <th>📦 الصنف</th>
+            <th>🔢 الكمية</th>
+            <th>⚖️ الوحدة</th>
+            <th>🛠️ إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -110,7 +117,12 @@ const StockPage = () => {
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
             filteredItems.map((item, index) => (
-              <tr key={index}>
+              <tr
+                key={index}
+                style={{
+                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
+                }}
+              >
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>

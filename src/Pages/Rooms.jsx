@@ -1,6 +1,7 @@
 // src/pages/Rooms.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import "../GlobalStyles.css";
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -25,9 +26,21 @@ const Rooms = () => {
     const today = new Date().toISOString().split("T")[0];
 
     if (editId) {
+      const password = prompt("ادخل كلمة السر لتعديل الصنف:");
+      if (password !== "1234" && password !== "2991034") {
+        alert("كلمة المرور غير صحيحة");
+        return;
+      }
+
       const updatedItems = items.map((item) =>
         item.id === editId
-          ? { ...item, name, quantity: parseFloat(quantity), unit }
+          ? {
+              ...item,
+              name,
+              quantity: parseFloat(quantity),
+              unit,
+              isEdited: true, // علشان يفضل أحمر
+            }
           : item
       );
       setItems(updatedItems);
@@ -40,6 +53,7 @@ const Rooms = () => {
         quantity: parseFloat(quantity),
         unit,
         date: today,
+        isEdited: false,
       };
       const updatedItems = [...items, newItem];
       setItems(updatedItems);
@@ -53,7 +67,7 @@ const Rooms = () => {
 
   const handleDelete = (id) => {
     const password = prompt("أدخل كلمة المرور للحذف:");
-    if (password !== "1234") {
+    if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور غير صحيحة.");
       return;
     }
@@ -74,65 +88,41 @@ const Rooms = () => {
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "700px", margin: "0 auto", direction: "rtl" }}>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          marginBottom: "15px",
-          padding: "6px 12px",
-          backgroundColor: "#6c757d",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
+    <div className="page-container" dir="rtl">
+      <button className="back-button" onClick={() => navigate(-1)}>
         ⬅ رجوع
       </button>
 
-      <h2>🚪 قسم الغرف</h2>
+      <h2 className="page-title">🚪 قسم الغرف</h2>
 
-      <div style={{ marginBottom: "20px" }}>
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم المنتج"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ padding: "6px", marginRight: "10px" }}
         />
         <input
           type="number"
           placeholder="الكمية"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          style={{ padding: "6px", marginRight: "10px" }}
         />
-        <select
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          style={{ padding: "6px" }}
-        >
+        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option>عدد</option>
           <option>كيلو</option>
+          <option>صاج</option>
+          <option>سيرفيز</option>
+          <option>برنيكة</option>
         </select>
-        <button
-          onClick={handleAddOrUpdate}
-          style={{
-            marginRight: "10px",
-            padding: "6px 12px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-          }}
-        >
+        <button className="add-button" onClick={handleAddOrUpdate}>
           {editId ? "تحديث" : "إضافة"}
         </button>
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table className="styled-table">
         <thead>
-          <tr style={{ backgroundColor: "#f2f2f2" }}>
+          <tr>
             <th>الاسم</th>
             <th>الكمية</th>
             <th>الوحدة</th>
@@ -143,37 +133,24 @@ const Rooms = () => {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.id} style={{ textAlign: "center" }}>
+            <tr
+              key={item.id}
+              className={item.isEdited ? "edited-row" : ""}
+              style={{ textAlign: "center" }}
+            >
               <td>{item.name}</td>
               <td>{item.quantity}</td>
               <td>{item.unit}</td>
               <td>{item.date}</td>
               <td>
-                <button
-                  onClick={() => handleEdit(item)}
-                  style={{
-                    backgroundColor: "#ffc107",
-                    color: "black",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
-                >
+                <button className="edit-btn" onClick={() => handleEdit(item)}>
                   تعديل
                 </button>
               </td>
               <td>
                 <button
+                  className="delete-btn"
                   onClick={() => handleDelete(item.id)}
-                  style={{
-                    backgroundColor: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
                 >
                   حذف
                 </button>

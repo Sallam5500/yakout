@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import "./Factory.css";
+import "../GlobalStyles.css";
 
 const BranchReceive = () => {
   const [item, setItem] = useState("");
@@ -58,60 +58,64 @@ const BranchReceive = () => {
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📥 استلام من المصنع - فرع {branchName}</h2>
 
-      <div className="form-container">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={item}
-          onChange={(e) => setItem(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
-        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option>عدد</option>
-          <option>برنيكة</option>
-          <option>سيرفيز</option>
-          <option>كيلو</option>
-          <option>صاج</option>
-        </select>
-        <input
-          type="text"
-          placeholder="بيان / ملاحظات"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
+      <div className="form-section">
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="اسم الصنف"
+            value={item}
+            onChange={(e) => setItem(e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="الكمية"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <option>عدد</option>
+            <option>برنيكة</option>
+            <option>سيرفيز</option>
+            <option>كيلو</option>
+            <option>صاج</option>
+          </select>
+          <input
+            type="text"
+            placeholder="بيان / ملاحظات"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
         <button onClick={handleSubmit}>💾 تسجيل الاستلام</button>
       </div>
 
-      <h3 className="table-title">📋 السجل:</h3>
-      <div className="table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>اسم الصنف</th>
-              <th>الكمية</th>
-              <th>الوحدة</th>
-              <th>البيان</th>
-              <th>التاريخ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((rec, index) => (
+      <h3 className="page-subtitle">📋 السجل:</h3>
+      <table className="styled-table">
+        <thead>
+          <tr>
+            <th>اسم الصنف</th>
+            <th>الكمية</th>
+            <th>الوحدة</th>
+            <th>البيان</th>
+            <th>التاريخ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.length === 0 ? (
+            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
+          ) : (
+            records.map((rec, index) => (
               <tr key={index}>
                 <td>{rec.name}</td>
                 <td>{rec.quantity}</td>
                 <td>{rec.unit}</td>
-                <td>{rec.note}</td>
+                <td>{rec.note || '-'}</td>
                 <td>{rec.date}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 };

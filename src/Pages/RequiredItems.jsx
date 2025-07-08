@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css"; // نستخدم نفس الـ CSS العام
+import "../GlobalStyles.css";
 
 const RequiredItems = () => {
   const [items, setItems] = useState([]);
@@ -10,7 +10,6 @@ const RequiredItems = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // تحميل البيانات من Local Storage
   useEffect(() => {
     const stored = localStorage.getItem("requiredItems");
     if (stored) {
@@ -18,12 +17,10 @@ const RequiredItems = () => {
     }
   }, []);
 
-  // حفظ البيانات في Local Storage
   useEffect(() => {
     localStorage.setItem("requiredItems", JSON.stringify(items));
   }, [items]);
 
-  // إضافة صنف جديد
   const handleAdd = () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
@@ -31,7 +28,7 @@ const RequiredItems = () => {
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date };
+    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
     setItems([...items, newItem]);
 
     setName("");
@@ -39,10 +36,9 @@ const RequiredItems = () => {
     setUnit("عدد");
   };
 
-  // حذف صنف بباسورد
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234") {
+    if (password === "1234" || password === "2991034") {
       const updated = [...items];
       updated.splice(index, 1);
       setItems(updated);
@@ -51,17 +47,17 @@ const RequiredItems = () => {
     }
   };
 
-  // تعديل صنف بباسورد
   const handleEdit = (index) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
-    if (password !== "1234") {
+    if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const newName = prompt("اسم الصنف الجديد:", items[index].name);
-    const newQuantity = prompt("الكمية الجديدة:", items[index].quantity);
-    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", items[index].unit);
+    const current = items[index];
+    const newName = prompt("اسم الصنف الجديد:", current.name);
+    const newQuantity = prompt("الكمية الجديدة:", current.quantity);
+    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", current.unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
@@ -70,27 +66,28 @@ const RequiredItems = () => {
 
     const updated = [...items];
     updated[index] = {
-      ...updated[index],
+      ...current,
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
-      updated: true, // ✅ تعليم إنه تم التعديل
+      updated: true,
     };
     setItems(updated);
   };
 
-  // فلترة العناصر
   const filteredItems = items.filter(
     (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
+      item.name.includes(searchTerm.trim()) ||
+      item.date.includes(searchTerm.trim())
   );
 
   return (
-    <div className="store-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>الاحتياجات المطلوبة من الخارج 📄</h2>
+      <h2 className="page-title">📄 الاحتياجات المطلوبة من الخارج</h2>
+      <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
-      <div className="form-section">
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم الصنف"
@@ -107,7 +104,7 @@ const RequiredItems = () => {
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
         </select>
-        <button onClick={handleAdd}>تسجيل احتياج</button>
+        <button className="add-button" onClick={handleAdd}>تسجيل احتياج</button>
       </div>
 
       <input
@@ -116,9 +113,18 @@ const RequiredItems = () => {
         placeholder="اكتب اسم أو تاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          padding: "10px",
+          borderRadius: "6px",
+          border: "none",
+          marginBottom: "15px",
+          fontSize: "16px",
+          width: "300px",
+          textAlign: "center"
+        }}
       />
 
-      <table className="items-table">
+      <table className="styled-table">
         <thead>
           <tr>
             <th>التاريخ</th>
@@ -135,19 +141,14 @@ const RequiredItems = () => {
             </tr>
           ) : (
             filteredItems.map((item, index) => (
-              <tr
-                key={index}
-                style={{
-                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
-                }}
-              >
+              <tr key={index} className={item.updated ? "edited-row" : ""}>
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
                 </td>
               </tr>
             ))

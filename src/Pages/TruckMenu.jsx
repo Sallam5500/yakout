@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css"; // نستخدم نفس التنسيق العام
+import "../GlobalStyles.css";
 
 const TruckMenu = () => {
   const navigate = useNavigate();

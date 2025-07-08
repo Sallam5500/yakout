@@ -37,6 +37,8 @@ import MaintenanceExternal from "./Pages/MaintenanceExternal";
 import RoomsOut from './Pages/RoomsOut';
 import StreetOut from './Pages/StreetOut';
 import BranchReceive from "./Pages/BranchReceive";
+import './GlobalStyles.css';
+
 
 
 

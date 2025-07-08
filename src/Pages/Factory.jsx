@@ -16,13 +16,15 @@ const Factory = () => {
   ];
 
   const handleProtectedNavigation = (path) => {
-    const password = prompt("أدخل كلمة المرور للدخول:");
-    if (password === "1234") {
+   const password = prompt('من فضلك ادخل كلمة المرور:');
+    const correctPasswords = ['1234', '2991034'];
+   if (correctPasswords.includes(password)) {
       navigate(path);
     } else {
-      alert("كلمة المرور غير صحيحة.");
+      alert('كلمة المرور غير صحيحة!');
     }
   };
+
 
   return (
     <div className="factory-page">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 const Torte = () => {
   const [items, setItems] = useState([]);
@@ -28,7 +28,7 @@ const Torte = () => {
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date };
+    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
     setItems([...items, newItem]);
 
     setName("");
@@ -38,7 +38,7 @@ const Torte = () => {
 
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234") {
+    if (password === "1234" || password === "2991034") {
       const updated = [...items];
       updated.splice(index, 1);
       setItems(updated);
@@ -49,14 +49,15 @@ const Torte = () => {
 
   const handleEdit = (index) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
-    if (password !== "1234") {
+    if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const newName = prompt("اسم الصنف الجديد:", items[index].name);
-    const newQuantity = prompt("الكمية الجديدة:", items[index].quantity);
-    const newUnit = prompt("الوحدة الجديدة:", items[index].unit);
+    const currentItem = items[index];
+    const newName = prompt("اسم الصنف الجديد:", currentItem.name);
+    const newQuantity = prompt("الكمية الجديدة:", currentItem.quantity);
+    const newUnit = prompt("الوحدة الجديدة:", currentItem.unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
@@ -65,7 +66,7 @@ const Torte = () => {
 
     const updated = [...items];
     updated[index] = {
-      ...updated[index],
+      ...currentItem,
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
@@ -75,17 +76,17 @@ const Torte = () => {
   };
 
   const filteredItems = items.filter(
-    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) => item.name.includes(searchTerm.trim()) || item.date.includes(searchTerm.trim())
   );
 
   return (
-    <div className="store-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>🎂 أوردرات التورت</h2>
-      
+      <h2 className="page-title">🎂 أوردرات التورت</h2>
+
       <button onClick={() => window.print()} className="print-btn">🖨️ طباعة</button>
 
-      <div className="form-section">
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم الصنف"
@@ -103,7 +104,7 @@ const Torte = () => {
           <option value="قالب">قالب</option>
           <option value="صينية">صينية</option>
         </select>
-        <button onClick={handleAdd}>تسجيل الصنف</button>
+        <button className="add-button" onClick={handleAdd}>تسجيل الصنف</button>
       </div>
 
       <input
@@ -112,9 +113,18 @@ const Torte = () => {
         placeholder="بحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          padding: "10px",
+          borderRadius: "6px",
+          border: "none",
+          marginBottom: "15px",
+          fontSize: "16px",
+          width: "300px",
+          textAlign: "center"
+        }}
       />
 
-      <table className="items-table">
+      <table className="styled-table">
         <thead>
           <tr>
             <th>التاريخ</th>
@@ -131,17 +141,15 @@ const Torte = () => {
             filteredItems.map((item, index) => (
               <tr
                 key={index}
-                style={{
-                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
-                }}
+                className={item.updated ? "edited-row" : ""}
               >
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
                 </td>
               </tr>
             ))

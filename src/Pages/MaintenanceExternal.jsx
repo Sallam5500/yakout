@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 const MaintenanceExternal = () => {
   const navigate = useNavigate();
@@ -22,16 +22,46 @@ const MaintenanceExternal = () => {
 
   const handleAdd = () => {
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { date, section, details, cost, note };
+    const newItem = { date, section, details, cost, note, updated: false };
     setTasks([...tasks, newItem]);
     setSection(""); setDetails(""); setCost(""); setNote("");
   };
 
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور للحذف:");
-    if (password !== "1234") return alert("كلمة المرور خاطئة.");
+    if (password !== "1234" && password !== "2991034") return alert("كلمة المرور خاطئة.");
     const updated = [...tasks];
     updated.splice(index, 1);
+    setTasks(updated);
+  };
+
+  const handleEdit = (index) => {
+    const password = prompt("ادخل كلمة المرور للتعديل:");
+    if (password !== "1234" && password !== "2991034") {
+      alert("كلمة المرور خاطئة.");
+      return;
+    }
+
+    const task = tasks[index];
+    const newSection = prompt("القسم الجديد:", task.section);
+    const newDetails = prompt("تفاصيل الصيانة الجديدة:", task.details);
+    const newCost = prompt("المدة / التكلفة الجديدة:", task.cost);
+    const newNote = prompt("الملاحظات الجديدة:", task.note);
+
+    if (!newSection || !newDetails || !newCost) {
+      alert("لم يتم تعديل البيانات.");
+      return;
+    }
+
+    const updated = [...tasks];
+    updated[index] = {
+      ...task,
+      section: newSection,
+      details: newDetails,
+      cost: newCost,
+      note: newNote,
+      updated: true,
+    };
     setTasks(updated);
   };
 
@@ -43,17 +73,17 @@ const MaintenanceExternal = () => {
   );
 
   return (
-    <div className="store-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>🔩 الصيانة الخارجية</h2>
+      <h2 className="page-title">🔩 الصيانة الخارجية</h2>
       <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
-      <div className="form-section">
+      <div className="form-row">
         <input placeholder="القسم" value={section} onChange={(e) => setSection(e.target.value)} />
         <input placeholder="تفاصيل الصيانة" value={details} onChange={(e) => setDetails(e.target.value)} />
         <input placeholder="المدة / التكلفة" value={cost} onChange={(e) => setCost(e.target.value)} />
         <input placeholder="ملاحظات" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button onClick={handleAdd}>➕ إضافة</button>
+        <button className="add-button" onClick={handleAdd}>➕ إضافة</button>
       </div>
 
       <input
@@ -61,9 +91,18 @@ const MaintenanceExternal = () => {
         placeholder="بحث بالاسم أو التاريخ أو القسم"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          padding: "10px",
+          borderRadius: "6px",
+          border: "none",
+          marginBottom: "15px",
+          fontSize: "16px",
+          width: "300px",
+          textAlign: "center"
+        }}
       />
 
-      <table className="items-table">
+      <table className="styled-table">
         <thead>
           <tr>
             <th>التاريخ</th>
@@ -71,19 +110,20 @@ const MaintenanceExternal = () => {
             <th>تفاصيل الصيانة</th>
             <th>المدة / التكلفة</th>
             <th>ملاحظات</th>
-            <th>إجراء</th>
+            <th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
           {filtered.map((item, i) => (
-            <tr key={i}>
+            <tr key={i} className={item.updated ? "edited-row" : ""}>
               <td>{item.date}</td>
               <td>{item.section}</td>
               <td>{item.details}</td>
               <td>{item.cost}</td>
               <td>{item.note}</td>
               <td>
-                <button onClick={() => handleDelete(i)}>🗑️</button>
+                <button className="edit-btn" onClick={() => handleEdit(i)}>✏️</button>{" "}
+                <button className="delete-btn" onClick={() => handleDelete(i)}>🗑️</button>
               </td>
             </tr>
           ))}

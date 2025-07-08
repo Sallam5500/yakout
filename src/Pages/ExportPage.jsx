@@ -1,8 +1,6 @@
-// src/pages/ExportPage.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 const ExportPage = () => {
   const [stockItems, setStockItems] = useState([]);
@@ -55,7 +53,7 @@ const ExportPage = () => {
 
   const handleDelete = (index) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password !== "1234") {
+    if (password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
@@ -69,12 +67,16 @@ const ExportPage = () => {
     (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
-  return (
-    <div className="store-page">
-      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>📤 الصادرات</h2>
+  const handlePrint = () => {
+    window.print();
+  };
 
-      <div className="form-section">
+  return (
+    <div className="factory-page">
+      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">📤 الصادرات</h2>
+
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم الصنف"
@@ -91,25 +93,28 @@ const ExportPage = () => {
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
         </select>
-        <button onClick={handleAddExport}>تسجيل صادر</button>
+        <button onClick={handleAddExport}>➕ تسجيل صادر</button>
       </div>
 
-      <input
-        type="text"
-        className="search"
-        placeholder="ابحث بالاسم أو التاريخ"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      <div className="form-row">
+        <input
+          type="text"
+          className="search"
+          placeholder="🔍 ابحث بالاسم أو التاريخ"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <button onClick={handlePrint}>🖨️ طباعة</button>
+      </div>
 
-      <table className="items-table">
+      <table className="styled-table">
         <thead>
           <tr>
-            <th>التاريخ</th>
-            <th>الصنف</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>إجراءات</th>
+            <th>📅 التاريخ</th>
+            <th>📦 الصنف</th>
+            <th>🔢 الكمية</th>
+            <th>⚖️ الوحدة</th>
+            <th>🛠️ إجراءات</th>
           </tr>
         </thead>
         <tbody>

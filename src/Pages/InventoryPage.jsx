@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import './InventoryPage.css';
+import '../GlobalStyles.css';
 
 const InventoryPage = () => {
   const { branchId } = useParams();
@@ -27,7 +27,7 @@ const InventoryPage = () => {
 
     const newRecord = {
       ...formData,
-      date: new Date().toLocaleDateString('ar-EG'),
+      date: new Date().toLocaleDateString('fr-CA'),
     };
 
     let updated;
@@ -35,6 +35,7 @@ const InventoryPage = () => {
     if (editIndex !== null) {
       updated = [...inventory];
       updated[editIndex] = newRecord;
+      updated[editIndex].updated = true;
       setEditIndex(null);
     } else {
       updated = [...inventory, newRecord];
@@ -73,53 +74,55 @@ const InventoryPage = () => {
   );
 
   return (
-    <div className="inventory-container">
-      <button className="back-button" onClick={() => navigate(-1)}>← رجوع</button>
-      <h2>جرد اليومي للمحل - فرع {branchName}</h2>
+    <div className="factory-page">
+      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">📋 جرد المحل - فرع {branchName}</h2>
 
-      <form onSubmit={handleSubmit} className="inventory-form">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={formData.product}
-          onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={formData.quantity}
-          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-          required
-        />
-        <select
-          value={formData.unit}
-          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-        >
-          <option>عدد</option>
-          <option>سيرفيز</option>
-          <option>برنيكة</option>
-          <option>كيلو</option>
-          <option>صاج</option>
-        </select>
-        <input
-          type="text"
-          placeholder="بيان / ملاحظات"
-          value={formData.note}
-          onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-        />
+      <form onSubmit={handleSubmit} className="form-section">
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="اسم الصنف"
+            value={formData.product}
+            onChange={(e) => setFormData({ ...formData, product: e.target.value })}
+            required
+          />
+          <input
+            type="number"
+            placeholder="الكمية"
+            value={formData.quantity}
+            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+            required
+          />
+          <select
+            value={formData.unit}
+            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+          >
+            <option>عدد</option>
+            <option>سيرفيز</option>
+            <option>برنيكة</option>
+            <option>كيلو</option>
+            <option>صاج</option>
+          </select>
+          <input
+            type="text"
+            placeholder="بيان / ملاحظات"
+            value={formData.note}
+            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+          />
+        </div>
         <button type="submit">{editIndex !== null ? 'تحديث' : 'تسجيل'}</button>
       </form>
 
       <input
         type="text"
+        className="search"
         placeholder="ابحث باسم الصنف أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        style={{ width: '100%', padding: '12px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ccc' }}
       />
 
-      <table className="inventory-table">
+      <table className="styled-table">
         <thead>
           <tr>
             <th>التاريخ</th>
@@ -131,19 +134,28 @@ const InventoryPage = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredData.map((item, index) => (
-            <tr key={index}>
-              <td>{item.date}</td>
-              <td>{item.product}</td>
-              <td>{item.quantity}</td>
-              <td>{item.unit || '-'}</td>
-              <td>{item.note || '-'}</td>
-              <td>
-                <button onClick={() => handleEdit(index)} style={{ marginRight: '8px' }}>✏</button>
-                <button onClick={() => handleDelete(index)}>🗑</button>
-              </td>
-            </tr>
-          ))}
+          {filteredData.length === 0 ? (
+            <tr><td colSpan="6">لا توجد بيانات.</td></tr>
+          ) : (
+            filteredData.map((item, index) => (
+              <tr
+                key={index}
+                style={{
+                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
+                }}
+              >
+                <td>{item.date}</td>
+                <td>{item.product}</td>
+                <td>{item.quantity}</td>
+                <td>{item.unit || '-'}</td>
+                <td>{item.note || '-'}</td>
+                <td>
+                  <button onClick={() => handleEdit(index)}>✏️</button>{' '}
+                  <button onClick={() => handleDelete(index)}>🗑️</button>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

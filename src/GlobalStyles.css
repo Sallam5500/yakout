@@ -1,0 +1,308 @@
+/* خلفية الصفحة */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Cairo', sans-serif;
+  background: linear-gradient(to bottom, #00264d, #0059b3); /* أزرق غامق لفاتح */
+  color: white;
+  min-height: 100vh;
+}
+.page-container {
+  direction: rtl;
+  text-align: right;
+}
+
+
+/* صفحة رئيسية */
+.factory-page {
+  max-width: 700px;
+  margin: 30px auto;
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2); /* شفافية خفيفة */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+
+/* عنوان الصفحة */
+h2, .page-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 20px 0;
+  color: white !important; /* علشان يظهر واضح */
+  text-shadow: 0 0 5px #00000088;
+}
+
+/* الكروت */
+.factory-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.factory-card {
+  background: linear-gradient(to right, #007bff, #3399ff);
+  color: white;
+  font-weight: bold;
+  padding: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  font-size: 18px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.factory-card:hover {
+  transform: scale(1.03);
+  background: linear-gradient(to right, #0056b3, #1a8cff);
+}
+
+/* زر الرجوع */
+.back-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background-color: #c0392b;
+}
+/* === صفحة المخزن في الشارع === */
+
+.street-store-page {
+  max-width: 900px;
+  margin: 30px auto;
+  padding: 20px;
+  direction: rtl;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  color: white;
+}
+
+/* عنوان الصفحة */
+.page-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: white;
+  text-shadow: 0 0 4px #000;
+}
+
+/* زر الرجوع */
+.back-button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.back-button:hover {
+  background-color: #c0392b;
+}
+
+/* فورم الإدخال */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 25px;
+}
+
+.form-row input,
+.form-row select {
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  width: 150px;
+  font-size: 16px;
+}
+
+.add-button {
+  padding: 10px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background-color: #0056b3;
+}
+
+/* جدول البيانات */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.styled-table th,
+.styled-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+}
+
+.styled-table th {
+  background-color: #004080;
+}
+
+.styled-table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* أزرار الجدول */
+.edit-btn,
+.delete-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.edit-btn {
+  background-color: #ffc107;
+  color: black;
+}
+
+.edit-btn:hover {
+  background-color: #e0a800;
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+/* لو تم تعديل الصنف */
+.edited-row {
+  background-color: #ffcccc !important;
+  color: black;
+  font-weight: bold;
+    text-align: center;
+}
+
+.cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.card-section {
+  background-color: #f9f9f9;
+  padding: 25px;
+  width: 270px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  text-align: center;
+  cursor: pointer;
+}
+
+.card-section h3 {
+  margin-bottom: 10px;
+  font-size: 22px;
+  color: #444;
+}
+
+.card-section p {
+  color: #666;
+  font-size: 15px;
+}
+
+.card-section:hover {
+  background-color: #e8f7ff;
+  transform: translateY(-5px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.welcome-text {
+  text-align: center;
+  font-size: 40px;
+  font-weight: bold;
+  color: #ff4081;
+  margin-bottom: 30px;
+  direction: ltr; /* مهم جدا */
+}
+
+.animated-char {
+  display: inline-block;
+  animation: fadeInOut 3s ease-in-out forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+
+
+.cards-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.card {
+  background-color: #fff;
+  border: 2px solid #ff4081;
+  border-radius: 20px;
+  padding: 25px 40px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  transition: transform 0.3s, background-color 0.3s;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.card:hover {
+  background-color: #ff4081;
+  color: white;
+  transform: scale(1.05);
+}
+
+.flex{
+  display: flex;
+  padding: 50px;
+
+}
+.m20{
+  margin-left: 50px;
+}

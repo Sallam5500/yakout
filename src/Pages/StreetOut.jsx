@@ -1,18 +1,39 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Factory.css"; // لو فيه تنسيقات عامة
+import "../GlobalStyles.css";
 
 const StreetOut = () => {
   const [item, setItem] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [records, setRecords] = useState([]);
+  const [editedIds, setEditedIds] = useState([]);
+  const [editIndex, setEditIndex] = useState(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("street-out")) || [];
     setRecords(stored);
+
+    const storedEdited = JSON.parse(localStorage.getItem("street-out-edited")) || [];
+    setEditedIds(storedEdited);
   }, []);
+
+  const updateEditedIds = (ids) => {
+    setEditedIds(ids);
+    localStorage.setItem("street-out-edited", JSON.stringify(ids));
+  };
+
+  const updateStock = (name, qtyChange) => {
+    const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
+    const updated = stock.map((row) =>
+      row.name.trim().toLowerCase() === name.trim().toLowerCase()
+        ? { ...row, quantity: row.quantity + qtyChange }
+        : row
+    );
+    localStorage.setItem("streetStoreItems", JSON.stringify(updated));
+  };
 
   const handleSubmit = () => {
     if (!item || !quantity) {
@@ -20,60 +41,113 @@ const StreetOut = () => {
       return;
     }
 
-    const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
+    if (editIndex !== null) {
+      const password = prompt("أدخل كلمة المرور للتعديل:");
+      if (password !== "1234" && password !== "2991034") {
+        alert("❌ كلمة المرور غير صحيحة.");
+        return;
+      }
 
-    // التأكد من وجود الصنف
-    const found = stock.some(
-      (row) =>
+      const oldRecord = records[editIndex];
+      const diff = oldRecord.quantity - Number(quantity);
+      updateStock(oldRecord.name, diff); // يرجع الفرق للمخزن
+
+      const updatedRecord = {
+        ...oldRecord,
+        name: item,
+        quantity: Number(quantity),
+        note,
+      };
+
+      const updatedRecords = [...records];
+      updatedRecords[editIndex] = updatedRecord;
+      setRecords(updatedRecords);
+      localStorage.setItem("street-out", JSON.stringify(updatedRecords));
+
+      const updatedIds = [...editedIds, oldRecord.date]; // date كـ ID
+      updateEditedIds([...new Set(updatedIds)]); // بدون تكرار
+
+      alert("✅ تم التعديل بنجاح.");
+    } else {
+      const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
+      const found = stock.some(
+        (row) => row.name.trim().toLowerCase() === item.trim().toLowerCase()
+      );
+      if (!found) {
+        alert("❌ هذا الصنف غير موجود في المخزن.");
+        return;
+      }
+
+      const updatedStock = stock.map((row) =>
         row.name.trim().toLowerCase() === item.trim().toLowerCase()
-    );
-    if (!found) {
-      alert("❌ هذا الصنف غير موجود في المخزن.");
-      return;
+          ? { ...row, quantity: row.quantity - Number(quantity) }
+          : row
+      );
+      localStorage.setItem("streetStoreItems", JSON.stringify(updatedStock));
+
+      const now = new Date().toLocaleString("ar-EG", {
+        timeZone: "Africa/Cairo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const newRecord = {
+        name: item,
+        quantity: Number(quantity),
+        note,
+        date: now,
+      };
+
+      const updatedRecords = [...records, newRecord];
+      setRecords(updatedRecords);
+      localStorage.setItem("street-out", JSON.stringify(updatedRecords));
     }
 
-    // تعديل الكمية في المخزن
-    const updatedStock = stock.map((row) =>
-      row.name.trim().toLowerCase() === item.trim().toLowerCase()
-        ? { ...row, quantity: row.quantity - Number(quantity) }
-        : row
-    );
-    localStorage.setItem("streetStoreItems", JSON.stringify(updatedStock));
-
-    // تسجيل في سجل الصادر
-    const now = new Date().toLocaleString("ar-EG", {
-      timeZone: "Africa/Cairo",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const newRecord = {
-      name: item,
-      quantity: Number(quantity),
-      note,
-      date: now,
-    };
-
-    const updatedRecords = [...records, newRecord];
-    setRecords(updatedRecords);
-    localStorage.setItem("street-out", JSON.stringify(updatedRecords));
-
-    // إفراغ الحقول
+    // Reset
     setItem("");
     setQuantity("");
     setNote("");
-    alert("✅ تم تسجيل الصادر.");
+    setEditIndex(null);
+  };
+
+  const handleEdit = (index) => {
+    const record = records[index];
+    setItem(record.name);
+    setQuantity(record.quantity);
+    setNote(record.note);
+    setEditIndex(index);
+  };
+
+  const handleDelete = (index) => {
+    const password = prompt("أدخل كلمة المرور للحذف:");
+    if (password !== "1234" && password !== "2991034") {
+      alert("❌ كلمة المرور غير صحيحة.");
+      return;
+    }
+
+    const confirm = window.confirm("هل أنت متأكد من الحذف؟");
+    if (!confirm) return;
+
+    const deleted = records[index];
+    updateStock(deleted.name, deleted.quantity);
+
+    const updatedRecords = records.filter((_, i) => i !== index);
+    setRecords(updatedRecords);
+    localStorage.setItem("street-out", JSON.stringify(updatedRecords));
+
+    const updatedIds = editedIds.filter((id) => id !== deleted.date);
+    updateEditedIds(updatedIds);
   };
 
   return (
-    <div className="factory-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📤 الصادر من المخزن</h2>
 
-      <div className="form-container">
+      <div className="form-row">
         <input
           type="text"
           placeholder="اسم الصنف"
@@ -92,27 +166,44 @@ const StreetOut = () => {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <button onClick={handleSubmit}>💾 تسجيل</button>
+        <button className="add-button" onClick={handleSubmit}>
+          {editIndex !== null ? "💾 تحديث" : "➕ تسجيل"}
+        </button>
       </div>
 
       <h3 className="table-title">📑 سجل الصادر:</h3>
       <div className="table-container">
-        <table className="data-table">
+        <table className="styled-table">
           <thead>
             <tr>
               <th>اسم الصنف</th>
               <th>الكمية</th>
               <th>البيان</th>
               <th>التاريخ</th>
+              <th>تعديل</th>
+              <th>حذف</th>
             </tr>
           </thead>
           <tbody>
             {records.map((rec, index) => (
-              <tr key={index}>
+              <tr
+                key={index}
+                className={editedIds.includes(rec.date) ? "edited-row" : ""}
+              >
                 <td>{rec.name}</td>
                 <td>{rec.quantity}</td>
                 <td>{rec.note}</td>
                 <td>{rec.date}</td>
+                <td>
+                  <button className="edit-btn" onClick={() => handleEdit(index)}>
+                    تعديل
+                  </button>
+                </td>
+                <td>
+                  <button className="delete-btn" onClick={() => handleDelete(index)}>
+                    حذف
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

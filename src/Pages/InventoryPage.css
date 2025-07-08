@@ -1,107 +1,116 @@
-body {
+/* خلفية أزرق غامق إلى فاتح */
+body, html {
   margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #f0f4ff, #eaf6ff);
-  min-height: 100vh;
+  padding: 0;
+  font-family: 'Cairo', sans-serif;
+  background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #4f7c94);
+  background-size: 400% 400%;
+  animation: blueGradient 15s ease infinite;
+  color: #f1f1f1;
 }
 
-/* الحاوية العامة */
+@keyframes blueGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* الحاوية الأساسية */
 .inventory-container {
   max-width: 900px;
-  margin: 40px auto;
+  margin: 30px auto;
+  background-color: rgba(255, 255, 255, 0.93);
+  border-radius: 15px;
   padding: 30px;
-  background-color: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(5px);
-  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 1s ease;
+  color: #1e1e1e;
 }
 
-/* العنوان */
-.inventory-container h2 {
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+h2 {
   text-align: center;
-  color: #2c3e50;
-  font-size: 28px;
+  color: #0f3e60;
   margin-bottom: 25px;
 }
 
-/* النموذج */
+.back-button {
+  background-color: #0f3e60;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+.back-button:hover {
+  background-color: #0a2c45;
+}
+
 .inventory-form {
   display: flex;
   flex-wrap: wrap;
   gap: 15px;
-  justify-content: center;
-  margin-bottom: 35px;
+  margin-bottom: 20px;
 }
 
-.inventory-form input {
-  padding: 12px 16px;
+.inventory-form input,
+.inventory-form select {
+  flex: 1;
+  padding: 10px;
+  background-color: #eef6fa;
+  color: #2f2f2f;
+  border: 1px solid #99c4e0;
+  border-radius: 8px;
   font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  width: 220px;
-  background-color: #f9f9f9;
-  transition: border 0.3s ease;
-}
-
-.inventory-form input:focus {
-  border-color: #2c89e8;
-  outline: none;
 }
 
 .inventory-form button {
-  padding: 12px 28px;
-  font-size: 16px;
-  background-color: #2c89e8;
+  padding: 10px 20px;
+  background-color: #3498db;
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
 }
-
 .inventory-form button:hover {
-  background-color: #1e6fd1;
+  background-color: #217dbb;
 }
 
-/* الجدول */
 .inventory-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #fff;
-  border-radius: 12px;
-  overflow: hidden;
+  color: #1e1e1e;
 }
 
 .inventory-table th,
 .inventory-table td {
-  border: 1px solid #ddd;
-  padding: 14px;
+  border: 1px solid #ccc;
+  padding: 12px;
   text-align: center;
 }
 
 .inventory-table th {
-  background-color: #f0f4ff;
-  color: #333;
-  font-weight: bold;
+  background-color: #d6eaf8;
 }
 
 .inventory-table tr:nth-child(even) {
-  background-color: #f9fbff;
+  background-color: #eef6fa;
 }
 
-/* زر الرجوع */
-.back-button {
-  margin-bottom: 20px;
-  padding: 10px 22px;
-  font-size: 16px;
-  background-color: #ddd;
+.inventory-table button {
+  background-color: #5dade2;
   border: none;
-  border-radius: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  margin: 0 4px;
+  transition: transform 0.2s;
 }
-
-.back-button:hover {
-  background-color: #bbb;
+.inventory-table button:hover {
+  transform: scale(1.1);
 }

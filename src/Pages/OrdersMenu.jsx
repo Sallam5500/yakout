@@ -1,6 +1,7 @@
+// src/pages/OrdersMenu.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 const OrdersMenu = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const OrdersMenu = () => {
 
   const handleProtectedNavigate = (path) => {
     const password = prompt("من فضلك ادخل كلمة المرور للدخول:");
-    if (password === "1234") {
+    if (password === "1234" || password === "2991034") {
       navigate(path);
     } else {
       alert("كلمة المرور غير صحيحة.");
@@ -24,18 +25,18 @@ const OrdersMenu = () => {
   };
 
   return (
-    <div className="store-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>📝 أوردرات التصنيع</h2>
-      <div className="cards-container">
+      <h2 className="page-title">📝 أوردرات التصنيع</h2>
+
+      <div className="factory-sections">
         {sections.map((sec, idx) => (
           <div
             key={idx}
-            className="card-section"
+            className="factory-card"
             onClick={() => handleProtectedNavigate(sec.path)}
-            style={{ cursor: "pointer", textAlign: "center" }}
           >
-            <h3>{sec.label}</h3>
+            {sec.label}
           </div>
         ))}
       </div>
