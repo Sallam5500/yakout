@@ -1,7 +1,6 @@
-// src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Login.css';
+import '../GlobalStyles.css';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -19,22 +18,24 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container">
-      <h2>تسجيل الدخول</h2>
-      <form onSubmit={handleLogin}>
-        <input
-          type="text"
-          placeholder="اسم المستخدم"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="كلمة المرور"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit">دخول</button>
+    <div className="login-page">
+      <h2 className="page-title">🔐 تسجيل الدخول</h2>
+      <form onSubmit={handleLogin} className="form-section">
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="اسم المستخدم"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="كلمة المرور"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        <button type="submit">✅ دخول</button>
       </form>
     </div>
   );

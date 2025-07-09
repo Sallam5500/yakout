@@ -306,3 +306,21 @@ h2, .page-title {
 .m20{
   margin-left: 50px;
 }
+.login-page {
+  max-width: 500px;
+  margin: 80px auto;
+  padding: 40px;
+  background-color: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.login-page input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 16px;
+}
