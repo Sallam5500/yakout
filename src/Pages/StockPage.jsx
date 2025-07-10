@@ -2,6 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
 
+import { db } from "../firebase";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  query,
+  where
+} from "firebase/firestore";
+
 const StockPage = () => {
   const [stockItems, setStockItems] = useState([]);
   const [name, setName] = useState("");
@@ -10,34 +22,56 @@ const StockPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  const today = new Date().toLocaleDateString("fr-CA");
+  const collectionRef = collection(db, "storeItems");
+
+  // تحميل البيانات من Firestore
   useEffect(() => {
-    const storedStock = localStorage.getItem("storeItems");
-    if (storedStock) setStockItems(JSON.parse(storedStock));
+    const fetchData = async () => {
+      const snapshot = await getDocs(collectionRef);
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setStockItems(data);
+    };
+
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("storeItems", JSON.stringify(stockItems));
-  }, [stockItems]);
-
-  const handleAddStock = () => {
+  // إضافة أو تحديث صنف
+  const handleAddStock = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
-    const date = new Date().toLocaleDateString("fr-CA");
-    const existingIndex = stockItems.findIndex(
-      (item) => item.name === name && item.date === date && item.unit === unit
+    const existingItem = stockItems.find(
+      (item) => item.name === name && item.date === today && item.unit === unit
     );
 
-    if (existingIndex !== -1) {
-      const updated = [...stockItems];
-      updated[existingIndex].quantity += parseInt(quantity);
-      updated[existingIndex].updated = true;
-      setStockItems(updated);
+    if (existingItem) {
+      const updatedQuantity = existingItem.quantity + parseInt(quantity);
+      await updateDoc(doc(db, "storeItems", existingItem.id), {
+        quantity: updatedQuantity,
+        updated: true,
+      });
+      setStockItems((prev) =>
+        prev.map((item) =>
+          item.id === existingItem.id
+            ? { ...item, quantity: updatedQuantity, updated: true }
+            : item
+        )
+      );
     } else {
-      const newItem = { name, quantity: parseInt(quantity), unit, date };
-      setStockItems([...stockItems, newItem]);
+      const newItem = {
+        name,
+        quantity: parseInt(quantity),
+        unit,
+        date: today,
+      };
+      const docRef = await addDoc(collectionRef, newItem);
+      setStockItems((prev) => [...prev, { id: docRef.id, ...newItem }]);
     }
 
     setName("");
@@ -45,16 +79,16 @@ const StockPage = () => {
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
+  // حذف صنف
+  const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const updated = [...stockItems];
-    updated.splice(index, 1);
-    setStockItems(updated);
+    await deleteDoc(doc(db, "storeItems", id));
+    setStockItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const filteredItems = stockItems.filter(
@@ -72,12 +106,12 @@ const StockPage = () => {
       <h2 className="page-title">📦 البضاعة (المخزون الرئيسي)</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <select value={name} onChange={(e) => setName(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {[...new Set(stockItems.map((item) => item.name))].map((itemName, index) => (
+            <option key={index} value={itemName}>{itemName}</option>
+          ))}
+        </select>
         <input
           type="number"
           placeholder="الكمية"
@@ -87,6 +121,11 @@ const StockPage = () => {
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
+          <option value="كيس">كيس</option>
+          <option value="برنيكه">برنيكه</option>
+          <option value="جرام">جرام</option>
+          <option value="برميل">برميل</option>
+          <option value="كرتونة">كرتونة</option>
         </select>
         <button onClick={handleAddStock}>➕ إضافة للمخزن</button>
       </div>
@@ -116,9 +155,9 @@ const StockPage = () => {
           {filteredItems.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item, index) => (
+            filteredItems.map((item) => (
               <tr
-                key={index}
+                key={item.id}
                 style={{
                   backgroundColor: item.updated ? "#d0ebff" : "transparent",
                 }}
@@ -128,7 +167,7 @@ const StockPage = () => {
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button onClick={() => handleDelete(index)}>🗑️</button>
+                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
                 </td>
               </tr>
             ))

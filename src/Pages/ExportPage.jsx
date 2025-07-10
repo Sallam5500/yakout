@@ -2,6 +2,16 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
 
+import { db } from "../firebase";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
+
 const ExportPage = () => {
   const [stockItems, setStockItems] = useState([]);
   const [exportItems, setExportItems] = useState([]);
@@ -11,60 +21,75 @@ const ExportPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  const today = new Date().toLocaleDateString("fr-CA");
+
+  const storeRef = collection(db, "storeItems");
+  const exportRef = collection(db, "exportItems");
+
+  // تحميل الأصناف والمخزون
   useEffect(() => {
-    const storedStock = localStorage.getItem("storeItems");
-    const storedExports = localStorage.getItem("exportItems");
-    if (storedStock) setStockItems(JSON.parse(storedStock));
-    if (storedExports) setExportItems(JSON.parse(storedExports));
+    const fetchData = async () => {
+      const storeSnap = await getDocs(storeRef);
+      const exportSnap = await getDocs(exportRef);
+
+      setStockItems(storeSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      setExportItems(exportSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("storeItems", JSON.stringify(stockItems));
-    localStorage.setItem("exportItems", JSON.stringify(exportItems));
-  }, [stockItems, exportItems]);
-
-  const handleAddExport = () => {
+  const handleAddExport = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
-    const date = new Date().toLocaleDateString("fr-CA");
-    const stockIndex = stockItems.findIndex(
+    const stockItem = stockItems.find(
       (item) => item.name === name && item.unit === unit
     );
 
-    if (stockIndex === -1 || stockItems[stockIndex].quantity < parseInt(quantity)) {
+    if (!stockItem || stockItem.quantity < parseInt(quantity)) {
       alert("الكمية غير متوفرة في المخزن.");
       return;
     }
 
-    const updatedStock = [...stockItems];
-    updatedStock[stockIndex].quantity -= parseInt(quantity);
-    setStockItems(updatedStock);
+    // خصم من المخزون
+    const updatedQuantity = stockItem.quantity - parseInt(quantity);
+    await updateDoc(doc(db, "storeItems", stockItem.id), {
+      quantity: updatedQuantity,
+    });
 
-    const newExport = { name, quantity: parseInt(quantity), unit, date };
-    setExportItems([...exportItems, newExport]);
+    // إضافة في الصادرات
+    const newExport = {
+      name,
+      quantity: parseInt(quantity),
+      unit,
+      date: today,
+    };
+
+    const exportDoc = await addDoc(exportRef, newExport);
+    setExportItems((prev) => [...prev, { id: exportDoc.id, ...newExport }]);
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
+  const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const updated = [...exportItems];
-    updated.splice(index, 1);
-    setExportItems(updated);
+    await deleteDoc(doc(db, "exportItems", id));
+    setExportItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const filteredItems = exportItems.filter(
-    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) =>
+      item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
   const handlePrint = () => {
@@ -77,12 +102,12 @@ const ExportPage = () => {
       <h2 className="page-title">📤 الصادرات</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <select value={name} onChange={(e) => setName(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {[...new Set(stockItems.map((item) => item.name))].map((itemName, index) => (
+            <option key={index} value={itemName}>{itemName}</option>
+          ))}
+        </select>
         <input
           type="number"
           placeholder="الكمية"
@@ -92,6 +117,11 @@ const ExportPage = () => {
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
+          <option value="كيس">كيس</option>
+          <option value="برنيكه">برنيكه</option>
+          <option value="جرام">جرام</option>
+          <option value="برميل">برميل</option>
+          <option value="كرتونة">كرتونة</option>
         </select>
         <button onClick={handleAddExport}>➕ تسجيل صادر</button>
       </div>
@@ -121,14 +151,14 @@ const ExportPage = () => {
           {filteredItems.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item, index) => (
-              <tr key={index}>
+            filteredItems.map((item) => (
+              <tr key={item.id}>
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button onClick={() => handleDelete(index)}>🗑️</button>
+                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
                 </td>
               </tr>
             ))
