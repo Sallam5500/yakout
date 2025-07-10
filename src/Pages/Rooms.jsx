@@ -1,4 +1,3 @@
-// src/pages/Rooms.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
@@ -6,10 +5,20 @@ import "../GlobalStyles.css";
 const Rooms = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [customName, setCustomName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [items, setItems] = useState([]);
   const [editId, setEditId] = useState(null);
+
+  const itemOptions = [
+    "شيكولاتة",
+    "مانجا فليت",
+    "فرولة فليت",
+    "كيوي فليت",
+    "جيلي",
+    "أدخل صنف جديد"
+  ];
 
   useEffect(() => {
     const storedItems = JSON.parse(localStorage.getItem("roomItems")) || [];
@@ -21,7 +30,9 @@ const Rooms = () => {
   };
 
   const handleAddOrUpdate = () => {
-    if (!name || !quantity) return alert("من فضلك أدخل الاسم والكمية");
+    const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
+
+    if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -36,10 +47,10 @@ const Rooms = () => {
         item.id === editId
           ? {
               ...item,
-              name,
+              name: finalName,
               quantity: parseFloat(quantity),
               unit,
-              isEdited: true, // علشان يفضل أحمر
+              isEdited: true,
             }
           : item
       );
@@ -49,7 +60,7 @@ const Rooms = () => {
     } else {
       const newItem = {
         id: Date.now(),
-        name,
+        name: finalName,
         quantity: parseFloat(quantity),
         unit,
         date: today,
@@ -61,6 +72,7 @@ const Rooms = () => {
     }
 
     setName("");
+    setCustomName("");
     setQuantity("");
     setUnit("عدد");
   };
@@ -82,6 +94,7 @@ const Rooms = () => {
 
   const handleEdit = (item) => {
     setName(item.name);
+    setCustomName("");
     setQuantity(item.quantity);
     setUnit(item.unit);
     setEditId(item.id);
@@ -93,15 +106,27 @@ const Rooms = () => {
         ⬅ رجوع
       </button>
 
-      <h2 className="page-title">🚪 قسم الغرف</h2>
+      <h2 className="page-title">🢨 غرفة التبريد</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم المنتج"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <select value={name} onChange={(e) => setName(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {itemOptions.map((item, idx) => (
+            <option key={idx} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        {name === "أدخل صنف جديد" && (
+          <input
+            type="text"
+            placeholder="أدخل اسم الصنف"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+          />
+        )}
+
         <input
           type="number"
           placeholder="الكمية"
@@ -112,7 +137,8 @@ const Rooms = () => {
           <option>عدد</option>
           <option>كيلو</option>
           <option>صاج</option>
-          <option>سيرفيز</option>
+          <option>جردل</option>
+          <option>كيس</option>
           <option>برنيكة</option>
         </select>
         <button className="add-button" onClick={handleAddOrUpdate}>

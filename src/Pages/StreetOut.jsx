@@ -4,13 +4,21 @@ import "../GlobalStyles.css";
 
 const StreetOut = () => {
   const [item, setItem] = useState("");
+  const [customItem, setCustomItem] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [records, setRecords] = useState([]);
   const [editedIds, setEditedIds] = useState([]);
   const [editIndex, setEditIndex] = useState(null);
-
   const navigate = useNavigate();
+
+   const itemOptions = [
+    "سكر", "دقيق", "شيكولاتة", "بسكويت", "مربى", "زبدة", "لبن بودرة", 
+    "لبن", "كريمة", "عجينة", "جلوكوز", "زيت", "خميرة", "كرتونة", 
+    "كيس تغليف", "كيس ناعم", "علبة بلاستيك", "علبة ورق", "كرتونة طبالي",
+    "أدخل صنف جديد"
+  ];
+
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("street-out")) || [];
@@ -36,7 +44,9 @@ const StreetOut = () => {
   };
 
   const handleSubmit = () => {
-    if (!item || !quantity) {
+    const finalItem = item === "أدخل صنف جديد" ? customItem.trim() : item.trim();
+
+    if (!finalItem || !quantity) {
       alert("من فضلك أدخل اسم الصنف والكمية");
       return;
     }
@@ -50,11 +60,11 @@ const StreetOut = () => {
 
       const oldRecord = records[editIndex];
       const diff = oldRecord.quantity - Number(quantity);
-      updateStock(oldRecord.name, diff); // يرجع الفرق للمخزن
+      updateStock(oldRecord.name, diff);
 
       const updatedRecord = {
         ...oldRecord,
-        name: item,
+        name: finalItem,
         quantity: Number(quantity),
         note,
       };
@@ -64,14 +74,14 @@ const StreetOut = () => {
       setRecords(updatedRecords);
       localStorage.setItem("street-out", JSON.stringify(updatedRecords));
 
-      const updatedIds = [...editedIds, oldRecord.date]; // date كـ ID
-      updateEditedIds([...new Set(updatedIds)]); // بدون تكرار
+      const updatedIds = [...editedIds, oldRecord.date];
+      updateEditedIds([...new Set(updatedIds)]);
 
       alert("✅ تم التعديل بنجاح.");
     } else {
       const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
       const found = stock.some(
-        (row) => row.name.trim().toLowerCase() === item.trim().toLowerCase()
+        (row) => row.name.trim().toLowerCase() === finalItem.toLowerCase()
       );
       if (!found) {
         alert("❌ هذا الصنف غير موجود في المخزن.");
@@ -79,7 +89,7 @@ const StreetOut = () => {
       }
 
       const updatedStock = stock.map((row) =>
-        row.name.trim().toLowerCase() === item.trim().toLowerCase()
+        row.name.trim().toLowerCase() === finalItem.toLowerCase()
           ? { ...row, quantity: row.quantity - Number(quantity) }
           : row
       );
@@ -95,7 +105,7 @@ const StreetOut = () => {
       });
 
       const newRecord = {
-        name: item,
+        name: finalItem,
         quantity: Number(quantity),
         note,
         date: now,
@@ -106,8 +116,8 @@ const StreetOut = () => {
       localStorage.setItem("street-out", JSON.stringify(updatedRecords));
     }
 
-    // Reset
     setItem("");
+    setCustomItem("");
     setQuantity("");
     setNote("");
     setEditIndex(null);
@@ -148,12 +158,22 @@ const StreetOut = () => {
       <h2 className="page-title">📤 الصادر من المخزن</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={item}
-          onChange={(e) => setItem(e.target.value)}
-        />
+        <select value={item} onChange={(e) => setItem(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {itemOptions.map((i, idx) => (
+            <option key={idx} value={i}>{i}</option>
+          ))}
+        </select>
+
+        {item === "أدخل صنف جديد" && (
+          <input
+            type="text"
+            placeholder="أدخل اسم الصنف"
+            value={customItem}
+            onChange={(e) => setCustomItem(e.target.value)}
+          />
+        )}
+
         <input
           type="number"
           placeholder="الكمية"

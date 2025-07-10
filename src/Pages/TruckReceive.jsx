@@ -5,10 +5,30 @@ import "../GlobalStyles.css";
 const TruckReceive = () => {
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
+  const [customName, setCustomName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("برنيكة");
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
+
+  // قائمة الأصناف
+  const itemOptions = [
+    "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
+    "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
+    "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
+    "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده", "صوابع زينب",
+    "عش نوتيلا", "عش فاكهة", "صاج رواني", "جلاش تركي", "كنافة فادج", "كنافة بستاشيو",
+    "بلح كريمة", "كورنيه", "دسباسيتو", "بروفترول", "ميني مربعه", "تورته ميني",
+    "تشيز كيك", "موس مشكلة", "فادج", "فلوتس", "مربعه فور سيزون", "ط26 فور سيزون",
+    "ط24 فور سيزون", "تفاحة نص ونص", "تفاحة R/F", "مربعه نص ونص", "مربعه R/F",
+    "ط 26 نص ونص", "ط 26 رومانتك", "ط 26 فاكيوم", "ط 24 بلاك", "ط 20 نص ونص", "ط 20 بلاك",
+    "قلب صفير", "فيستفال", "قشطوطة", "جاتوه سواريه", "20*30", "موس ابيض", "موس كرامل",
+    "موس توت", "موس لوتس", "موس فراولة", "موس شوكولاتة", "موس مانجا", "موس كيوي",
+    "أكواب فاكهة", "أكواب شوكولاتة", "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين",
+    "جاتوه كبير", "جاتوه صغير", "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك",
+    "طبقات 22", "30*30", "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد",
+    "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا", "أدخل صنف جديد"
+  ];
 
   useEffect(() => {
     const stored = localStorage.getItem("truckReceive");
@@ -22,16 +42,25 @@ const TruckReceive = () => {
   }, [items]);
 
   const handleAdd = () => {
-    if (!name || !quantity) {
+    const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
+
+    if (!finalName || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
+    const newItem = {
+      name: finalName,
+      quantity: parseInt(quantity),
+      unit,
+      date,
+      updated: false
+    };
     setItems([...items, newItem]);
 
     setName("");
+    setCustomName("");
     setQuantity("");
     setUnit("برنيكة");
   };
@@ -70,7 +99,7 @@ const TruckReceive = () => {
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
-      updated: true,
+      updated: true
     };
     setItems(updated);
   };
@@ -87,18 +116,31 @@ const TruckReceive = () => {
       <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <select value={name} onChange={(e) => setName(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {itemOptions.map((item, idx) => (
+            <option key={idx} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+
+        {name === "أدخل صنف جديد" && (
+          <input
+            type="text"
+            placeholder="أدخل اسم الصنف"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+          />
+        )}
+
         <input
           type="number"
           placeholder="الكمية"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="برنيكة">برنيكة</option>
           <option value="صاج">صاج</option>
@@ -107,6 +149,7 @@ const TruckReceive = () => {
           <option value="سيرفيز">سيرفيز</option>
           <option value="بلاكه">بلاكه</option>
         </select>
+
         <button className="add-button" onClick={handleAdd}>تسجيل استلام</button>
       </div>
 

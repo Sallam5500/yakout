@@ -5,10 +5,19 @@ import "../GlobalStyles.css";
 const StreetStore = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [customName, setCustomName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [items, setItems] = useState([]);
   const [editId, setEditId] = useState(null);
+
+  // قائمة الأصناف
+  const itemOptions = [
+    "سكر", "دقيق", "شيكولاتة", "بسكويت", "مربى", "زبدة", "لبن بودرة", 
+    "لبن", "كريمة", "عجينة", "جلوكوز", "زيت", "خميرة", "كرتونة", 
+    "كيس تغليف", "كيس ناعم", "علبة بلاستيك", "علبة ورق", "كرتونة طبالي",
+    "أدخل صنف جديد"
+  ];
 
   useEffect(() => {
     const storedItems = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
@@ -20,7 +29,9 @@ const StreetStore = () => {
   };
 
   const handleAddOrUpdate = () => {
-    if (!name || !quantity) return alert("من فضلك أدخل الاسم والكمية");
+    const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
+
+    if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -35,10 +46,10 @@ const StreetStore = () => {
         item.id === editId
           ? {
               ...item,
-              name,
+              name: finalName,
               quantity: parseFloat(quantity),
               unit,
-              isEdited: true, // نعلّم أن الصنف تم تعديله
+              isEdited: true,
             }
           : item
       );
@@ -48,11 +59,11 @@ const StreetStore = () => {
     } else {
       const newItem = {
         id: Date.now(),
-        name,
+        name: finalName,
         quantity: parseFloat(quantity),
         unit,
         date: today,
-        isEdited: false, // الصنف جديد مش معدل
+        isEdited: false,
       };
       const updatedItems = [...items, newItem];
       setItems(updatedItems);
@@ -60,6 +71,7 @@ const StreetStore = () => {
     }
 
     setName("");
+    setCustomName("");
     setQuantity("");
     setUnit("عدد");
   };
@@ -81,6 +93,7 @@ const StreetStore = () => {
 
   const handleEdit = (item) => {
     setName(item.name);
+    setCustomName("");
     setQuantity(item.quantity);
     setUnit(item.unit);
     setEditId(item.id);
@@ -95,12 +108,22 @@ const StreetStore = () => {
       <h2 className="page-title">🏪 المخزن اللي في الشارع</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم المنتج"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <select value={name} onChange={(e) => setName(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {itemOptions.map((item, idx) => (
+            <option key={idx} value={item}>{item}</option>
+          ))}
+        </select>
+
+        {name === "أدخل صنف جديد" && (
+          <input
+            type="text"
+            placeholder="أدخل اسم الصنف"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+          />
+        )}
+
         <input
           type="number"
           placeholder="الكمية"
@@ -110,9 +133,11 @@ const StreetStore = () => {
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option>عدد</option>
           <option>كيلو</option>
-          <option>صاج</option>
-          <option>سيرفيز</option>
-          <option>برنيكة</option>
+          <option>شكارة</option>
+          <option>جرام</option>
+          <option>برمل</option>
+          <option>كيس</option>
+          <option>جردل</option>
         </select>
         <button className="add-button" onClick={handleAddOrUpdate}>
           {editId ? "تحديث" : "إضافة"}

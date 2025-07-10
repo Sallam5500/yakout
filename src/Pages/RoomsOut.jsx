@@ -4,6 +4,7 @@ import "../GlobalStyles.css";
 
 const RoomsOut = () => {
   const [item, setItem] = useState("");
+  const [customItem, setCustomItem] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [records, setRecords] = useState([]);
@@ -11,6 +12,15 @@ const RoomsOut = () => {
   const [editIndex, setEditIndex] = useState(null);
 
   const navigate = useNavigate();
+
+  const itemOptions = [
+    "شيكولاتة",
+    "مانجا فليت",
+    "فرولة فليت",
+    "كيوي فليت",
+    "جيلي",
+    "أدخل صنف جديد"
+  ];
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("rooms-out")) || [];
@@ -36,7 +46,9 @@ const RoomsOut = () => {
   };
 
   const handleSubmit = () => {
-    if (!item || !quantity) {
+    const finalItem = item === "أدخل صنف جديد" ? customItem.trim() : item.trim();
+
+    if (!finalItem || !quantity) {
       alert("من فضلك أدخل اسم الصنف والكمية");
       return;
     }
@@ -50,11 +62,11 @@ const RoomsOut = () => {
 
       const oldRecord = records[editIndex];
       const diff = oldRecord.quantity - Number(quantity);
-      updateStock(oldRecord.name, diff); // يرجع الفرق
+      updateStock(oldRecord.name, diff);
 
       const updatedRecord = {
         ...oldRecord,
-        name: item,
+        name: finalItem,
         quantity: Number(quantity),
         note,
       };
@@ -70,9 +82,8 @@ const RoomsOut = () => {
       alert("✅ تم تعديل الصنف.");
     } else {
       const stock = JSON.parse(localStorage.getItem("roomItems")) || [];
-
       const found = stock.some(
-        (row) => row.name.trim().toLowerCase() === item.trim().toLowerCase()
+        (row) => row.name.trim().toLowerCase() === finalItem.toLowerCase()
       );
       if (!found) {
         alert("❌ هذا الصنف غير موجود في قسم الغرف.");
@@ -80,7 +91,7 @@ const RoomsOut = () => {
       }
 
       const updatedStock = stock.map((row) =>
-        row.name.trim().toLowerCase() === item.trim().toLowerCase()
+        row.name.trim().toLowerCase() === finalItem.toLowerCase()
           ? { ...row, quantity: row.quantity - Number(quantity) }
           : row
       );
@@ -96,7 +107,7 @@ const RoomsOut = () => {
       });
 
       const newRecord = {
-        name: item,
+        name: finalItem,
         quantity: Number(quantity),
         note,
         date: now,
@@ -109,6 +120,7 @@ const RoomsOut = () => {
 
     // Reset
     setItem("");
+    setCustomItem("");
     setQuantity("");
     setNote("");
     setEditIndex(null);
@@ -116,7 +128,8 @@ const RoomsOut = () => {
 
   const handleEdit = (index) => {
     const record = records[index];
-    setItem(record.name);
+    setItem(itemOptions.includes(record.name) ? record.name : "أدخل صنف جديد");
+    setCustomItem(record.name);
     setQuantity(record.quantity);
     setNote(record.note);
     setEditIndex(index);
@@ -133,7 +146,7 @@ const RoomsOut = () => {
     if (!confirm) return;
 
     const deleted = records[index];
-    updateStock(deleted.name, deleted.quantity); // رجع الكمية
+    updateStock(deleted.name, deleted.quantity);
 
     const updatedRecords = records.filter((_, i) => i !== index);
     setRecords(updatedRecords);
@@ -149,12 +162,22 @@ const RoomsOut = () => {
       <h2 className="page-title">📤 الصادر من الغرف</h2>
 
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={item}
-          onChange={(e) => setItem(e.target.value)}
-        />
+        <select value={item} onChange={(e) => setItem(e.target.value)}>
+          <option value="">اختر الصنف</option>
+          {itemOptions.map((opt, idx) => (
+            <option key={idx} value={opt}>{opt}</option>
+          ))}
+        </select>
+
+        {item === "أدخل صنف جديد" && (
+          <input
+            type="text"
+            placeholder="اسم الصنف الجديد"
+            value={customItem}
+            onChange={(e) => setCustomItem(e.target.value)}
+          />
+        )}
+
         <input
           type="number"
           placeholder="الكمية"
@@ -196,14 +219,10 @@ const RoomsOut = () => {
                 <td>{rec.note}</td>
                 <td>{rec.date}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>
-                    تعديل
-                  </button>
+                  <button className="edit-btn" onClick={() => handleEdit(index)}>تعديل</button>
                 </td>
                 <td>
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>
-                    حذف
-                  </button>
+                  <button className="delete-btn" onClick={() => handleDelete(index)}>حذف</button>
                 </td>
               </tr>
             ))}
