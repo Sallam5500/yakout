@@ -5,11 +5,11 @@ import "../GlobalStyles.css";
 import { db } from "../firebase";
 import {
   collection,
-  getDocs,
   addDoc,
-  updateDoc,
-  doc,
   deleteDoc,
+  doc,
+  updateDoc,
+  onSnapshot,
 } from "firebase/firestore";
 
 const ExportPage = () => {
@@ -22,21 +22,30 @@ const ExportPage = () => {
   const navigate = useNavigate();
 
   const today = new Date().toLocaleDateString("fr-CA");
-
-  const storeRef = collection(db, "storeItems");
+  const stockRef = collection(db, "storeItems");
   const exportRef = collection(db, "exportItems");
 
-  // تحميل الأصناف والمخزون
   useEffect(() => {
-    const fetchData = async () => {
-      const storeSnap = await getDocs(storeRef);
-      const exportSnap = await getDocs(exportRef);
+    const unsubStock = onSnapshot(stockRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setStockItems(data);
+    });
 
-      setStockItems(storeSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-      setExportItems(exportSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const unsubExport = onSnapshot(exportRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setExportItems(data);
+    });
+
+    return () => {
+      unsubStock();
+      unsubExport();
     };
-
-    fetchData();
   }, []);
 
   const handleAddExport = async () => {
@@ -54,13 +63,12 @@ const ExportPage = () => {
       return;
     }
 
-    // خصم من المخزون
-    const updatedQuantity = stockItem.quantity - parseInt(quantity);
+    // خصم الكمية من المخزون
     await updateDoc(doc(db, "storeItems", stockItem.id), {
-      quantity: updatedQuantity,
+      quantity: stockItem.quantity - parseInt(quantity),
     });
 
-    // إضافة في الصادرات
+    // إضافة السطر إلى exportItems
     const newExport = {
       name,
       quantity: parseInt(quantity),
@@ -68,8 +76,7 @@ const ExportPage = () => {
       date: today,
     };
 
-    const exportDoc = await addDoc(exportRef, newExport);
-    setExportItems((prev) => [...prev, { id: exportDoc.id, ...newExport }]);
+    await addDoc(exportRef, newExport);
 
     setName("");
     setQuantity("");
@@ -84,12 +91,10 @@ const ExportPage = () => {
     }
 
     await deleteDoc(doc(db, "exportItems", id));
-    setExportItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const filteredItems = exportItems.filter(
-    (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
   const handlePrint = () => {
