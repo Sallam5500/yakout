@@ -72,19 +72,41 @@ const OrdersPage = () => {
     item.product.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
+  const productList = [
+    "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
+    "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
+    "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
+    "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده", "صوابع زينب",
+    "عش نوتيلا", "عش فاكهة", "صاج رواني", "جلاش تركي", "كنافة فادج", "كنافة بستاشيو",
+    "بلح كريمة", "كورنيه", "دسباسيتو", "بروفترول", "ميني مربعه", "تورته ميني",
+    "تشيز كيك", "موس مشكلة", "فادج", "فلوتس", "مربعه فور سيزون", "ط26 فور سيزون",
+    "ط24 فور سيزون", "تفاحة نص ونص", "تفاحة R/F", "مربعه نص ونص", "مربعه R/F",
+    "ط 26 نص ونص", "ط 26 رومانتك", "ط 26 فاكيوم", "ط 24 بلاك", "ط 20 نص ونص", "ط 20 بلاك",
+    "قلب صفير", "فيستفال", "قشطوطة", "جاتوه سواريه", "20*30", "موس ابيض", "موس كرامل",
+    "موس توت", "موس لوتس", "موس فراولة", "موس شوكولاتة", "موس مانجا", "موس كيوي",
+    "أكواب فاكهة", "أكواب شوكولاتة", "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين",
+    "جاتوه كبير", "جاتوه صغير", "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك",
+    "طبقات 22", "30*30", "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد",
+    "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا", "أدخل صنف جديد"
+  ];
+
   return (
     <div className="inventory-container">
       <button className="back-button" onClick={() => navigate(-1)}>← رجوع</button>
       <h2>الأوردر اليومي - فرع {branchName}</h2>
 
       <form onSubmit={handleSubmit} className="inventory-form">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
+        <select
           value={formData.product}
           onChange={(e) => setFormData({ ...formData, product: e.target.value })}
           required
-        />
+        >
+          <option value="">اختر الصنف</option>
+          {productList.map((item, index) => (
+            <option key={index} value={item}>{item}</option>
+          ))}
+        </select>
+
         <input
           type="number"
           placeholder="الكمية المطلوبة"
@@ -92,6 +114,7 @@ const OrdersPage = () => {
           onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
           required
         />
+
         <select
           value={formData.unit}
           onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
@@ -102,6 +125,7 @@ const OrdersPage = () => {
           <option>كيلو</option>
           <option>صاج</option>
         </select>
+
         <input
           type="text"
           placeholder="بيان / ملاحظات"

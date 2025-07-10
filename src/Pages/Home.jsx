@@ -29,7 +29,7 @@ const Home = () => {
 
       {/* 🌀 الأنميشن بتاع اسم "Yaqoot Sweet" */}
       <div className="welcome-text" key={animationKey}>
-  {"Yaqoot Sweet".split("").map((char, i) => (
+  {"Yakoot Sweet".split("").map((char, i) => (
     <span
       key={i}
       className="animated-char"
