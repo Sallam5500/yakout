@@ -1,15 +1,17 @@
+// src/pages/ExportPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
-
 import { db } from "../firebase";
 import {
   collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
   onSnapshot,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
+  doc
 } from "firebase/firestore";
 
 const ExportPage = () => {
@@ -21,68 +23,78 @@ const ExportPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  const today = new Date().toLocaleDateString("fr-CA");
-  const stockRef = collection(db, "storeItems");
-  const exportRef = collection(db, "exportItems");
-
+  // جلب بيانات المخزون لحظيًا
   useEffect(() => {
-    const unsubStock = onSnapshot(stockRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
+    const unsubscribe = onSnapshot(collection(db, "storeItems"), (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      setStockItems(data);
+      setStockItems(items);
     });
-
-    const unsubExport = onSnapshot(exportRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setExportItems(data);
-    });
-
-    return () => {
-      unsubStock();
-      unsubExport();
-    };
+    return () => unsubscribe();
   }, []);
 
+  // جلب بيانات الصادرات لحظيًا
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "exportItems"), (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setExportItems(items);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // تسجيل عملية تصدير
   const handleAddExport = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
-    const stockItem = stockItems.find(
-      (item) => item.name === name && item.unit === unit
-    );
+    const date = new Date().toLocaleDateString("fr-CA");
 
-    if (!stockItem || stockItem.quantity < parseInt(quantity)) {
-      alert("الكمية غير متوفرة في المخزن.");
+    // البحث في المخزون
+    const q = query(
+      collection(db, "storeItems"),
+      where("name", "==", name),
+      where("unit", "==", unit)
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      alert("الصنف غير موجود في المخزون.");
+      return;
+    }
+
+    const stockDoc = snapshot.docs[0];
+    const stockData = stockDoc.data();
+
+    if (stockData.quantity < parseInt(quantity)) {
+      alert("الكمية غير متوفرة في المخزون.");
       return;
     }
 
     // خصم الكمية من المخزون
-    await updateDoc(doc(db, "storeItems", stockItem.id), {
-      quantity: stockItem.quantity - parseInt(quantity),
-    });
+    const newQty = stockData.quantity - parseInt(quantity);
+    await updateDoc(doc(db, "storeItems", stockDoc.id), { quantity: newQty });
 
-    // إضافة السطر إلى exportItems
-    const newExport = {
+    // تسجيل الصادر
+    await addDoc(collection(db, "exportItems"), {
       name,
       quantity: parseInt(quantity),
       unit,
-      date: today,
-    };
-
-    await addDoc(exportRef, newExport);
+      date,
+    });
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
+  // حذف صادر
   const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password !== "2991034") {
@@ -90,11 +102,17 @@ const ExportPage = () => {
       return;
     }
 
-    await deleteDoc(doc(db, "exportItems", id));
+    const updated = exportItems.filter((item) => item.id !== id);
+    setExportItems(updated); // تحديث الواجهة فقط (اختياري)
+
+    await updateDoc(doc(db, "exportItems", id), {
+      quantity: 0,
+    });
   };
 
   const filteredItems = exportItems.filter(
-    (item) => item.name.includes(searchTerm) || item.date.includes(searchTerm)
+    (item) =>
+      item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
   const handlePrint = () => {
@@ -109,16 +127,18 @@ const ExportPage = () => {
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {[...new Set(stockItems.map((item) => item.name))].map((itemName, index) => (
+          {[...new Set(stockItems.map((item) => item.name))].sort().map((itemName, index) => (
             <option key={index} value={itemName}>{itemName}</option>
           ))}
         </select>
+
         <input
           type="number"
           placeholder="الكمية"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
@@ -128,6 +148,7 @@ const ExportPage = () => {
           <option value="برميل">برميل</option>
           <option value="كرتونة">كرتونة</option>
         </select>
+
         <button onClick={handleAddExport}>➕ تسجيل صادر</button>
       </div>
 

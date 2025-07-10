@@ -1,17 +1,17 @@
+// src/pages/StockPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
-
 import { db } from "../firebase";
 import {
   collection,
-  addDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
   onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
   query,
   where,
+  getDocs
 } from "firebase/firestore";
 
 const StockPage = () => {
@@ -22,11 +22,9 @@ const StockPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  const today = new Date().toLocaleDateString("fr-CA");
-  const storeRef = collection(db, "storeItems");
-
+  // قراءة البيانات اللحظية من Firestore
   useEffect(() => {
-    const unsubscribe = onSnapshot(storeRef, (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "storeItems"), (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -34,33 +32,42 @@ const StockPage = () => {
       setStockItems(items);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribe(); // تنظيف الاستماع عند إغلاق الصفحة
   }, []);
 
+  // إضافة صنف أو تحديثه
   const handleAddStock = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
-    const existing = stockItems.find(
-      (item) => item.name === name && item.unit === unit && item.date === today
+    const date = new Date().toLocaleDateString("fr-CA");
+
+    // البحث عن صنف موجود بنفس الاسم والتاريخ والوحدة
+    const q = query(
+      collection(db, "storeItems"),
+      where("name", "==", name),
+      where("unit", "==", unit),
+      where("date", "==", date)
     );
 
-    if (existing) {
-      const updatedQty = existing.quantity + parseInt(quantity);
-      await updateDoc(doc(db, "storeItems", existing.id), {
-        quantity: updatedQty,
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const docRef = doc(db, "storeItems", snapshot.docs[0].id);
+      const oldQuantity = snapshot.docs[0].data().quantity;
+      await updateDoc(docRef, {
+        quantity: oldQuantity + parseInt(quantity),
         updated: true,
       });
     } else {
-      const newItem = {
+      await addDoc(collection(db, "storeItems"), {
         name,
         quantity: parseInt(quantity),
         unit,
-        date: today,
-      };
-      await addDoc(storeRef, newItem);
+        date,
+      });
     }
 
     setName("");
@@ -68,6 +75,7 @@ const StockPage = () => {
     setUnit("عدد");
   };
 
+  // حذف صنف
   const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password !== "2991034") {
@@ -75,7 +83,9 @@ const StockPage = () => {
       return;
     }
 
-    await deleteDoc(doc(db, "storeItems", id));
+    await updateDoc(doc(db, "storeItems", id), {
+      quantity: 0,
+    });
   };
 
   const filteredItems = stockItems.filter(
@@ -95,10 +105,11 @@ const StockPage = () => {
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {[...new Set(stockItems.map((item) => item.name))].map((itemName, index) => (
+          {[...new Set(stockItems.map((item) => item.name))].sort().map((itemName, index) => (
             <option key={index} value={itemName}>{itemName}</option>
           ))}
         </select>
+
         <input
           type="number"
           placeholder="الكمية"
