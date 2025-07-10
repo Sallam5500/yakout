@@ -1,18 +1,18 @@
-// src/pages/StockPage.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import "../GlobalStyles.css";
 import { db } from "../firebase";
 import {
   collection,
-  onSnapshot,
   addDoc,
-  updateDoc,
+  onSnapshot,
+  deleteDoc,
   doc,
+  updateDoc,
   query,
-  where,
-  getDocs
+  orderBy,
+  getDocs,
 } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
+import "../GlobalStyles.css";
 
 const StockPage = () => {
   const [stockItems, setStockItems] = useState([]);
@@ -22,9 +22,10 @@ const StockPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // قراءة البيانات اللحظية من Firestore
+  // قراءة البيانات من Firestore لحظيًا
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "storeItems"), (snapshot) => {
+    const q = query(collection(db, "storeItems"), orderBy("date", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -32,10 +33,9 @@ const StockPage = () => {
       setStockItems(items);
     });
 
-    return () => unsubscribe(); // تنظيف الاستماع عند إغلاق الصفحة
+    return () => unsubscribe();
   }, []);
 
-  // إضافة صنف أو تحديثه
   const handleAddStock = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
@@ -44,22 +44,14 @@ const StockPage = () => {
 
     const date = new Date().toLocaleDateString("fr-CA");
 
-    // البحث عن صنف موجود بنفس الاسم والتاريخ والوحدة
-    const q = query(
-      collection(db, "storeItems"),
-      where("name", "==", name),
-      where("unit", "==", unit),
-      where("date", "==", date)
+    const existing = stockItems.find(
+      (item) => item.name === name && item.unit === unit && item.date === date
     );
 
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      const docRef = doc(db, "storeItems", snapshot.docs[0].id);
-      const oldQuantity = snapshot.docs[0].data().quantity;
-      await updateDoc(docRef, {
-        quantity: oldQuantity + parseInt(quantity),
-        updated: true,
+    if (existing) {
+      const updatedQuantity = existing.quantity + parseInt(quantity);
+      await updateDoc(doc(db, "storeItems", existing.id), {
+        quantity: updatedQuantity,
       });
     } else {
       await addDoc(collection(db, "storeItems"), {
@@ -75,7 +67,6 @@ const StockPage = () => {
     setUnit("عدد");
   };
 
-  // حذف صنف
   const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password !== "2991034") {
@@ -83,9 +74,30 @@ const StockPage = () => {
       return;
     }
 
-    await updateDoc(doc(db, "storeItems", id), {
-      quantity: 0,
-    });
+    await deleteDoc(doc(db, "storeItems", id));
+  };
+
+  const handleDeleteAll = async () => {
+    const confirm = window.confirm("هل أنت متأكد أنك تريد حذف كل البيانات؟");
+    if (!confirm) return;
+
+    const password = prompt("ادخل كلمة المرور لحذف جميع البيانات:");
+    if (password !== "2991034") {
+      alert("كلمة المرور خاطئة.");
+      return;
+    }
+
+    try {
+      const snapshot = await getDocs(collection(db, "storeItems"));
+      const deletions = snapshot.docs.map((docSnap) =>
+        deleteDoc(doc(db, "storeItems", docSnap.id))
+      );
+      await Promise.all(deletions);
+      alert("✅ تم حذف كل البيانات بنجاح.");
+    } catch (error) {
+      console.error("❌ فشل الحذف:", error);
+      alert("حدث خطأ أثناء الحذف.");
+    }
   };
 
   const filteredItems = stockItems.filter(
@@ -97,6 +109,8 @@ const StockPage = () => {
     window.print();
   };
 
+  const uniqueNames = [...new Set(stockItems.map((item) => item.name))];
+
   return (
     <div className="factory-page">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
@@ -104,11 +118,20 @@ const StockPage = () => {
 
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
-          <option value="">اختر الصنف</option>
-          {[...new Set(stockItems.map((item) => item.name))].sort().map((itemName, index) => (
-            <option key={index} value={itemName}>{itemName}</option>
+          <option value="">اختر أو أدخل اسم صنف جديد</option>
+          {uniqueNames.map((itemName, index) => (
+            <option key={index} value={itemName}>
+              {itemName}
+            </option>
           ))}
         </select>
+
+        <input
+          type="text"
+          placeholder="أو اكتب صنف جديد"
+          onChange={(e) => setName(e.target.value)}
+          value={name}
+        />
 
         <input
           type="number"
@@ -116,6 +139,7 @@ const StockPage = () => {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
           <option value="كيلو">كيلو</option>
@@ -125,6 +149,7 @@ const StockPage = () => {
           <option value="برميل">برميل</option>
           <option value="كرتونة">كرتونة</option>
         </select>
+
         <button onClick={handleAddStock}>➕ إضافة للمخزن</button>
       </div>
 
@@ -156,9 +181,6 @@ const StockPage = () => {
             filteredItems.map((item) => (
               <tr
                 key={item.id}
-                style={{
-                  backgroundColor: item.updated ? "#d0ebff" : "transparent",
-                }}
               >
                 <td>{item.date}</td>
                 <td>{item.name}</td>
@@ -172,6 +194,22 @@ const StockPage = () => {
           )}
         </tbody>
       </table>
+
+      <button
+        className="delete-all-btn"
+        style={{
+          backgroundColor: "darkred",
+          color: "white",
+          marginTop: "20px",
+          padding: "10px 20px",
+          border: "none",
+          borderRadius: "8px",
+          cursor: "pointer",
+        }}
+        onClick={handleDeleteAll}
+      >
+        🧹 حذف كل البيانات
+      </button>
     </div>
   );
 };

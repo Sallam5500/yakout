@@ -37,6 +37,7 @@ import MaintenanceExternal from "./Pages/MaintenanceExternal";
 import RoomsOut from './Pages/RoomsOut';
 import StreetOut from './Pages/StreetOut';
 import BranchReceive from "./Pages/BranchReceive";
+import SeedStockData from "./SeedStockData";
 import './GlobalStyles.css';
 
 
@@ -96,6 +97,9 @@ const App = () => {
         <Route path="/shops/:branchId/inventory" element={<InventoryPage />} />
         <Route path="/shops/:branchId/orders" element={<OrdersPage />} />
         <Route path="/shops/:branchId/receive" element={<BranchReceive />} />
+
+          {/*   database */}
+        <Route path="/seed" element={<SeedStockData />} />
 
       </Routes>
     </Router>
