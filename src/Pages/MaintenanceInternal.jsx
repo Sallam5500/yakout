@@ -1,5 +1,15 @@
+// src/pages/MaintenanceInternal.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const MaintenanceInternal = () => {
@@ -11,83 +21,82 @@ const MaintenanceInternal = () => {
   const [note, setNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const collectionRef = collection(db, "internalMaintenanceTasks");
+
+  /* قراءة لحظيّة من Firestore */
   useEffect(() => {
-    const stored = localStorage.getItem("internalMaintenanceTasks");
-    if (stored) setTasks(JSON.parse(stored));
+    const unsub = onSnapshot(collectionRef, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setTasks(data);
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("internalMaintenanceTasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  const handleAdd = () => {
+  /* إضافة مهمة صيانة */
+  const handleAdd = async () => {
     if (!section || !details || !cost) {
       alert("يرجى إدخال القسم والتفاصيل والتكلفة.");
       return;
     }
-
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { date, section, details, cost, note, updated: false };
-    setTasks([...tasks, newItem]);
+    await addDoc(collectionRef, {
+      date,
+      section,
+      details,
+      cost,
+      note,
+      updated: false,
+    });
     setSection("");
     setDetails("");
     setCost("");
     setNote("");
   };
 
-  const handleDelete = (index) => {
-    const password = prompt("ادخل كلمة المرور للحذف:");
-    if (password !== "1234") return alert("كلمة المرور خاطئة.");
-    const updated = [...tasks];
-    updated.splice(index, 1);
-    setTasks(updated);
+  /* حذف مهمة */
+  const handleDelete = async (id) => {
+    const pwd = prompt("ادخل كلمة المرور للحذف:");
+    if (pwd !== "1234") return alert("كلمة المرور خاطئة.");
+    await deleteDoc(doc(db, "internalMaintenanceTasks", id));
   };
 
-  const handleEdit = (index) => {
-    const password = prompt("ادخل كلمة المرور للتعديل:");
-    if (password !== "1234") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
+  /* تعديل مهمة */
+  const handleEdit = async (task) => {
+    const pwd = prompt("ادخل كلمة المرور للتعديل:");
+    if (pwd !== "1234") return alert("كلمة المرور خاطئة.");
 
-    const task = tasks[index];
     const newSection = prompt("القسم الجديد:", task.section);
     const newDetails = prompt("تفاصيل الصيانة الجديدة:", task.details);
     const newCost = prompt("المدة / التكلفة الجديدة:", task.cost);
     const newNote = prompt("الملاحظات الجديدة:", task.note);
 
-    if (!newSection || !newDetails || !newCost) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
+    if (!newSection || !newDetails || !newCost)
+      return alert("لم يتم تعديل البيانات.");
 
-    const updated = [...tasks];
-    updated[index] = {
-      ...updated[index],
+    await updateDoc(doc(db, "internalMaintenanceTasks", task.id), {
       section: newSection,
       details: newDetails,
       cost: newCost,
       note: newNote,
       updated: true,
-    };
-    setTasks(updated);
+    });
   };
 
+  /* فلترة البحث */
   const filtered = tasks.filter(
-    (item) =>
-      item.details.includes(searchTerm) ||
-      item.section.includes(searchTerm) ||
-      item.date.includes(searchTerm)
+    (t) =>
+      t.details.includes(searchTerm) ||
+      t.section.includes(searchTerm) ||
+      t.date.includes(searchTerm)
   );
 
   return (
     <div className="page-container" dir="rtl">
-     
-        <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-        <h2 className="page-title">🛠️ الصيانة الداخلية</h2>
-        <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
- 
+      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">🛠️ الصيانة الداخلية</h2>
+      <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
+      {/* نموذج الإدخال */}
       <div className="form-row">
         <input placeholder="القسم" value={section} onChange={(e) => setSection(e.target.value)} />
         <input placeholder="تفاصيل الصيانة" value={details} onChange={(e) => setDetails(e.target.value)} />
@@ -96,6 +105,7 @@ const MaintenanceInternal = () => {
         <button onClick={handleAdd}>➕ إضافة</button>
       </div>
 
+      {/* البحث */}
       <input
         className="search"
         placeholder="🔍 بحث بالاسم أو التاريخ أو القسم"
@@ -103,6 +113,7 @@ const MaintenanceInternal = () => {
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
           <tr>
@@ -118,16 +129,16 @@ const MaintenanceInternal = () => {
           {filtered.length === 0 ? (
             <tr><td colSpan="6">لا توجد بيانات.</td></tr>
           ) : (
-            filtered.map((item, i) => (
-              <tr key={i} className={item.updated ? "edited-row" : ""}>
-                <td>{item.date}</td>
-                <td>{item.section}</td>
-                <td>{item.details}</td>
-                <td>{item.cost}</td>
-                <td>{item.note}</td>
+            filtered.map((t) => (
+              <tr key={t.id} className={t.updated ? "edited-row" : ""}>
+                <td>{t.date}</td>
+                <td>{t.section}</td>
+                <td>{t.details}</td>
+                <td>{t.cost}</td>
+                <td>{t.note}</td>
                 <td>
-                  <button onClick={() => handleEdit(i)}>✏️</button>{" "}
-                  <button onClick={() => handleDelete(i)}>🗑️</button>
+                  <button onClick={() => handleEdit(t)}>✏️</button>{" "}
+                  <button onClick={() => handleDelete(t.id)}>🗑️</button>
                 </td>
               </tr>
             ))

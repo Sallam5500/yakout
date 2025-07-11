@@ -1,5 +1,15 @@
+// src/pages/Cleaning.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Cleaning = () => {
@@ -11,49 +21,49 @@ const Cleaning = () => {
   const [note, setNote] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
+  const collectionRef = collection(db, "cleaningTasks");
+
+  // قراءة البيانات لحظياً من Firestore
   useEffect(() => {
-    const stored = localStorage.getItem("cleaningTasks");
-    if (stored) setTasks(JSON.parse(stored));
+    const unsub = onSnapshot(collectionRef, (snap) => {
+      const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setTasks(data);
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("cleaningTasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!section || !details || !duration) {
       alert("يرجى ملء الحقول الأساسية.");
       return;
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { date, section, details, duration, note, updated: false };
-    setTasks([...tasks, newItem]);
+    await addDoc(collectionRef, {
+      date,
+      section,
+      details,
+      duration,
+      note,
+      updated: false,
+    });
+
     setSection("");
     setDetails("");
     setDuration("");
     setNote("");
   };
 
-  const handleDelete = (index) => {
+  const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور للحذف:");
-    if (password !== "1234") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
-    const updated = [...tasks];
-    updated.splice(index, 1);
-    setTasks(updated);
+    if (password !== "1234") return alert("كلمة المرور خاطئة.");
+    await deleteDoc(doc(db, "cleaningTasks", id));
   };
 
-  const handleEdit = (index) => {
+  const handleEdit = async (task) => {
     const password = prompt("ادخل كلمة المرور للتعديل:");
-    if (password !== "1234") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
+    if (password !== "1234") return alert("كلمة المرور خاطئة.");
 
-    const task = tasks[index];
     const newSection = prompt("القسم الجديد:", task.section);
     const newDetails = prompt("تفاصيل النظافة الجديدة:", task.details);
     const newDuration = prompt("المدة / الكمية الجديدة:", task.duration);
@@ -64,16 +74,13 @@ const Cleaning = () => {
       return;
     }
 
-    const updated = [...tasks];
-    updated[index] = {
-      ...updated[index],
+    await updateDoc(doc(db, "cleaningTasks", task.id), {
       section: newSection,
       details: newDetails,
       duration: newDuration,
       note: newNote,
       updated: true,
-    };
-    setTasks(updated);
+    });
   };
 
   const filtered = tasks.filter(
@@ -85,11 +92,9 @@ const Cleaning = () => {
 
   return (
     <div className="page-container" dir="rtl">
-      
-        <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-        <h2 className="page-title">🧽 النظافة</h2>
-        <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
-   
+      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">🧽 النظافة</h2>
+      <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
       <div className="form-row">
         <input placeholder="القسم" value={section} onChange={(e) => setSection(e.target.value)} />
@@ -121,16 +126,16 @@ const Cleaning = () => {
           {filtered.length === 0 ? (
             <tr><td colSpan="6">لا توجد بيانات.</td></tr>
           ) : (
-            filtered.map((item, i) => (
-              <tr key={i} className={item.updated ? "edited-row" : ""}>
+            filtered.map((item) => (
+              <tr key={item.id} className={item.updated ? "edited-row" : ""}>
                 <td>{item.date}</td>
                 <td>{item.section}</td>
                 <td>{item.details}</td>
                 <td>{item.duration}</td>
                 <td>{item.note}</td>
                 <td>
-                  <button onClick={() => handleEdit(i)}>✏️</button>{" "}
-                  <button onClick={() => handleDelete(i)}>🗑️</button>
+                  <button onClick={() => handleEdit(item)}>✏️</button>{" "}
+                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
                 </td>
               </tr>
             ))

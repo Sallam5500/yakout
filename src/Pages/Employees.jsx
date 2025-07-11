@@ -1,221 +1,179 @@
 // src/pages/Employees.jsx
 import React, { useState, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  getDocs,
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../firebase";
+import { jsPDF } from "jspdf";          // 👈 تأكّد من تنصيب jspdf
+import "jspdf-autotable";               // 👈 تأكّد من تنصيب jspdf‑autotable
 import { useNavigate } from "react-router-dom";
+import "../GlobalStyles.css";
 
 const Employees = () => {
-  const navigate = useNavigate();
-
+  /* ----- state ----- */
   const [employees, setEmployees] = useState([]);
   const [name, setName] = useState("");
   const [job, setJob] = useState("");
-  const [phone, setPhone] = useState("");
-  const [startDate, setStartDate] = useState("");
+  const [role, setRole] = useState("موظف");
+  const [salary, setSalary] = useState("");
   const [idImage, setIdImage] = useState(null);
-  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState("");
 
+  const navigate = useNavigate();
+
+  /* ----- تحميل البيانات مرة واحدة ----- */
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("employees")) || [];
-    setEmployees(stored);
+    fetchEmployees();
   }, []);
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setIdImage(reader.result);
-    };
-    reader.readAsDataURL(file);
+  /* ----- جلب جميع الموظفين من Firestore ----- */
+  const fetchEmployees = async () => {
+    const snapshot = await getDocs(collection(db, "employees"));
+    const data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setEmployees(data);
   };
 
-  const handleAddOrUpdate = () => {
-    if (!name || !job || !phone) return alert("يرجى ملء الاسم والوظيفة ورقم التليفون");
+  /* ----- إضافة موظف جديد ----- */
+  const handleAddEmployee = async (e) => {
+    e.preventDefault();
+    if (!name || !job) return alert("يرجى إدخال الاسم والوظيفة");
 
-    const employee = {
-      id: editId || Date.now(),
+    let idImageUrl = "";
+
+    // رفع صورة البطاقة إلى Firebase Storage
+    if (idImage) {
+      const imageRef = ref(storage, `idCards/${Date.now()}_${idImage.name}`);
+      const snapshot = await uploadBytes(imageRef, idImage);
+      idImageUrl = await getDownloadURL(snapshot.ref);
+    }
+
+    await addDoc(collection(db, "employees"), {
       name,
       job,
-      phone,
-      startDate: startDate || "",
-      idImage,
-    };
+      role,
+      salary,
+      idImageUrl,
+      createdAt: new Date(),
+    });
 
-    let updatedList = [];
-
-    if (editId) {
-      updatedList = employees.map((emp) => (emp.id === editId ? employee : emp));
-    } else {
-      updatedList = [...employees, employee];
-    }
-
-    setEmployees(updatedList);
-    localStorage.setItem("employees", JSON.stringify(updatedList));
-
-    // Reset
+    // إعادة الضبط
     setName("");
     setJob("");
-    setPhone("");
-    setStartDate("");
+    setRole("موظف");
+    setSalary("");
     setIdImage(null);
-    setEditId(null);
+
+    fetchEmployees();
   };
 
-  const handleEdit = (emp) => {
-    setName(emp.name);
-    setJob(emp.job);
-    setPhone(emp.phone);
-    setStartDate(emp.startDate);
-    setIdImage(emp.idImage);
-    setEditId(emp.id);
+  /* ----- تصدير الجدول إلى PDF ----- */
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text("قائمة الموظفين", 14, 10);
+    doc.autoTable({
+      startY: 20,
+      head: [["الاسم", "الوظيفة", "الصلاحية", "الراتب"]],
+      body: employees.map((emp) => [
+        emp.name,
+        emp.job,
+        emp.role,
+        emp.salary || "-",
+      ]),
+    });
+    doc.save("الموظفين.pdf");
   };
 
-  const handleDelete = (id) => {
-    const password = prompt("أدخل كلمة المرور للحذف:");
-    if (password !== "1234") {
-      alert("كلمة المرور غير صحيحة.");
-      return;
-    }
+  /* ----- البحث / الفلترة ----- */
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name.toLowerCase().includes(search.toLowerCase()) ||
+    emp.job.toLowerCase().includes(search.toLowerCase())
+  );
 
-    const confirmDelete = window.confirm("هل تريد حذف هذا الموظف؟");
-    if (!confirmDelete) return;
-
-    const updated = employees.filter((emp) => emp.id !== id);
-    setEmployees(updated);
-    localStorage.setItem("employees", JSON.stringify(updated));
-  };
-
+  /* ----- JSX ----- */
   return (
-    <div style={{ padding: "20px", direction: "rtl", maxWidth: "900px", margin: "0 auto" }}>
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          marginBottom: "15px",
-          padding: "6px 12px",
-          backgroundColor: "#6c757d",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
-        ⬅ رجوع
+    <div className="factory-page">
+      {/* زر الرجوع */}
+      <button className="back-button" onClick={() => navigate(-1)}>
+        ⬅️ رجوع
       </button>
 
-      <h2>👨‍🔧 قسم الموظفين</h2>
+      <h2 className="page-title">إدارة الموظفين</h2>
 
-      <div style={{ marginBottom: "20px" }}>
+      {/* نموذج إضافة موظف */}
+      <form onSubmit={handleAddEmployee} className="form-row">
         <input
           type="text"
-          placeholder="الاسم"
+          placeholder="اسم الموظف"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ padding: "6px", marginLeft: "10px" }}
         />
         <input
           type="text"
           placeholder="الوظيفة"
           value={job}
           onChange={(e) => setJob(e.target.value)}
-          style={{ padding: "6px", marginLeft: "10px" }}
         />
         <input
-          type="text"
-          placeholder="رقم التليفون"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          style={{ padding: "6px", marginLeft: "10px" }}
+          type="number"
+          placeholder="الراتب"
+          value={salary}
+          onChange={(e) => setSalary(e.target.value)}
         />
-        <input
-          type="date"
-          placeholder="تاريخ بدء العمل"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          style={{ padding: "6px", marginLeft: "10px" }}
-        />
+        <select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="موظف">موظف</option>
+          <option value="مشرف">مشرف</option>
+        </select>
         <input
           type="file"
-          onChange={handleImageUpload}
           accept="image/*"
-          style={{ marginTop: "10px" }}
+          onChange={(e) => setIdImage(e.target.files[0])}
         />
-        <br />
-        <button
-          onClick={handleAddOrUpdate}
-          style={{
-            marginTop: "10px",
-            padding: "6px 12px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-          }}
-        >
-          {editId ? "تحديث" : "إضافة"}
-        </button>
+        <button type="submit">➕ إضافة</button>
+      </form>
+
+      {/* البحث والطباعة */}
+      <div className="form-row">
+        <input
+          type="text"
+          placeholder="بحث بالاسم أو الوظيفة..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button onClick={exportToPDF}>🖨️ تصدير PDF</button>
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* جدول البيانات */}
+      <table className="styled-table">
         <thead>
-          <tr style={{ backgroundColor: "#f2f2f2" }}>
+          <tr>
             <th>الاسم</th>
             <th>الوظيفة</th>
-            <th>التليفون</th>
-            <th>تاريخ البدء</th>
-            <th>صورة البطاقة</th>
-            <th>تعديل</th>
-            <th>حذف</th>
+            <th>الصلاحية</th>
+            <th>الراتب</th>
+            <th>البطاقة</th>
           </tr>
         </thead>
         <tbody>
-          {employees.map((emp) => (
-            <tr key={emp.id} style={{ textAlign: "center" }}>
+          {filteredEmployees.map((emp) => (
+            <tr key={emp.id}>
               <td>{emp.name}</td>
               <td>{emp.job}</td>
-              <td>{emp.phone}</td>
-              <td>{emp.startDate || "-"}</td>
+              <td>{emp.role}</td>
+              <td>{emp.salary || "-"}</td>
               <td>
-                {emp.idImage ? (
-                  <img
-                    src={emp.idImage}
-                    alt="بطاقة"
-                    width="60"
-                    height="60"
-                    style={{ objectFit: "cover", borderRadius: "5px" }}
-                  />
+                {emp.idImageUrl ? (
+                  <a href={emp.idImageUrl} target="_blank" rel="noreferrer">
+                    عرض الصورة
+                  </a>
                 ) : (
-                  "لا يوجد"
+                  "—"
                 )}
-              </td>
-              <td>
-                <button
-                  onClick={() => handleEdit(emp)}
-                  style={{
-                    backgroundColor: "#ffc107",
-                    color: "black",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
-                >
-                  تعديل
-                </button>
-              </td>
-              <td>
-                <button
-                  onClick={() => handleDelete(emp.id)}
-                  style={{
-                    backgroundColor: "#dc3545",
-                    color: "white",
-                    border: "none",
-                    padding: "5px 10px",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
-                >
-                  حذف
-                </button>
               </td>
             </tr>
           ))}

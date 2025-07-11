@@ -1,5 +1,18 @@
+// src/pages/StreetOut.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const StreetOut = () => {
@@ -8,50 +21,37 @@ const StreetOut = () => {
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [records, setRecords] = useState([]);
-  const [editedIds, setEditedIds] = useState([]);
-  const [editIndex, setEditIndex] = useState(null);
   const navigate = useNavigate();
 
- const itemOptions = [
-    "شكارة كريمه ", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", " رموش", 
-    "لينزا", "جلاش", "نشابه", "صوابع", "بلح", "علب كريمة", "قشطوطة", 
-    "فادج ", "كيس كاكو1.750جرام ", " كيس جرانه", "عزيزية ", "بسبوسة تركي ",
-    "شكارة سوداني مكسر ", "ك بندق ني مكسر  ", " كيس سوداني روشيه", "كيس بندق محمص250جرام ", " كيس أكلير ",
-    "كرتونة بندق سليم", "ك سكر بودره ", " ك جوز هند ناعم", "ك سميد", "جيلاتينة","ك لبن بودره",
-    "كيس لبن بودره 150 جرام","شيكولاته اسمر","شيكولاته بيضاء","كرتونة زيت","جركن زيت","لباني","باستري",
-    "فانليا","فاكيوم 7سم",
-    "لون احمر","علب طلبية","كرتونة خميرة فورية","سمنة فرن","نشا","سكر","دقيق اهرام","وجبة بتي فور","جوز هند محمص",
-    "لوز محمص مجروش","جوز هند ابيض","وجبة بسكوت","رابطة حلويات","علب بتي فور نص","علب بسكوت نص","علب غريبة نص",
-    "علب كعك ساده نص","علب كعك ملبن نص","لعب جاتوه","دفتر ترنسفير الوان","ملبن","وجبه سيرب","بكر استرتش",
-    "ورق سلوفان موس","علب جاتوه دسته","دفتر ترانسفير ساده","كرتونة بكين بودر ","ستان 2سم","جيلي شفاف","جيلي سخن",
-    "أدخل صنف جديد"
+  const itemOptions = [
+    "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", "رموش",
+    "لينزا", "جلاش", "نشابه", "صوابع", "بلح", "علب كريمة", "قشطوطة",
+    "فادج", "كيس كاكو1.750جرام", "كيس جرانه", "عزيزية", "بسبوسة تركي",
+    "شكارة سوداني مكسر", "ك بندق ني مكسر", "كيس سوداني روشيه", "كيس بندق محمص250جرام", "كيس أكلير",
+    "كرتونة بندق سليم", "ك سكر بودره", "ك جوز هند ناعم", "ك سميد", "جيلاتينة", "ك لبن بودره",
+    "كيس لبن بودره 150 جرام", "شيكولاته اسمر", "شيكولاته بيضاء", "كرتونة زيت", "جركن زيت", "لباني", "باستري",
+    "فانليا", "فاكيوم 7سم", "لون احمر", "علب طلبية", "كرتونة خميرة فورية", "سمنة فرن", "نشا", "سكر", "دقيق اهرام",
+    "وجبة بتي فور", "جوز هند محمص", "لوز محمص مجروش", "جوز هند ابيض", "وجبة بسكوت", "رابطة حلويات",
+    "علب بتي فور نص", "علب بسكوت نص", "علب غريبة نص", "علب كعك ساده نص", "علب كعك ملبن نص", "لعب جاتوه",
+    "دفتر ترنسفير الوان", "ملبن", "وجبه سيرب", "بكر استرتش", "ورق سلوفان موس", "علب جاتوه دسته",
+    "دفتر ترانسفير ساده", "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن", "أدخل صنف جديد"
   ];
 
+  const streetOutRef = collection(db, "street-out");
 
+  // قراءة بيانات الصادر من Firestore
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("street-out")) || [];
-    setRecords(stored);
-
-    const storedEdited = JSON.parse(localStorage.getItem("street-out-edited")) || [];
-    setEditedIds(storedEdited);
+    const unsubscribe = onSnapshot(streetOutRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setRecords(data);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const updateEditedIds = (ids) => {
-    setEditedIds(ids);
-    localStorage.setItem("street-out-edited", JSON.stringify(ids));
-  };
-
-  const updateStock = (name, qtyChange) => {
-    const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
-    const updated = stock.map((row) =>
-      row.name.trim().toLowerCase() === name.trim().toLowerCase()
-        ? { ...row, quantity: row.quantity + qtyChange }
-        : row
-    );
-    localStorage.setItem("streetStoreItems", JSON.stringify(updated));
-  };
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const finalItem = item === "أدخل صنف جديد" ? customItem.trim() : item.trim();
 
     if (!finalItem || !quantity) {
@@ -59,87 +59,48 @@ const StreetOut = () => {
       return;
     }
 
-    if (editIndex !== null) {
-      const password = prompt("أدخل كلمة المرور للتعديل:");
-      if (password !== "1234" && password !== "2991034") {
-        alert("❌ كلمة المرور غير صحيحة.");
-        return;
-      }
+    // التأكد من توفر الصنف والكمية في المخزن
+    const stockRef = collection(db, "street-store");
+    const q = query(stockRef, where("name", "==", finalItem));
+    const snapshot = await getDocs(q);
 
-      const oldRecord = records[editIndex];
-      const diff = oldRecord.quantity - Number(quantity);
-      updateStock(oldRecord.name, diff);
+    if (snapshot.empty) {
+      alert("❌ هذا الصنف غير موجود في المخزن.");
+      return;
+    }
 
-      const updatedRecord = {
-        ...oldRecord,
-        name: finalItem,
-        quantity: Number(quantity),
-        note,
-      };
+    const stockDoc = snapshot.docs[0];
+    const availableQty = stockDoc.data().quantity;
 
-      const updatedRecords = [...records];
-      updatedRecords[editIndex] = updatedRecord;
-      setRecords(updatedRecords);
-      localStorage.setItem("street-out", JSON.stringify(updatedRecords));
+    if (Number(quantity) > availableQty) {
+      alert(`❌ الكمية غير كافية. المتاح: ${availableQty}`);
+      return;
+    }
 
-      const updatedIds = [...editedIds, oldRecord.date];
-      updateEditedIds([...new Set(updatedIds)]);
-
-      alert("✅ تم التعديل بنجاح.");
-    } else {
-      const stock = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
-      const found = stock.some(
-        (row) => row.name.trim().toLowerCase() === finalItem.toLowerCase()
-      );
-      if (!found) {
-        alert("❌ هذا الصنف غير موجود في المخزن.");
-        return;
-      }
-
-      const updatedStock = stock.map((row) =>
-        row.name.trim().toLowerCase() === finalItem.toLowerCase()
-          ? { ...row, quantity: row.quantity - Number(quantity) }
-          : row
-      );
-      localStorage.setItem("streetStoreItems", JSON.stringify(updatedStock));
-
-      const now = new Date().toLocaleString("ar-EG", {
+    // تسجيل الصادر فقط بدون خصم فعلي
+    await addDoc(streetOutRef, {
+      name: finalItem,
+      quantity: Number(quantity),
+      note,
+      date: new Date().toLocaleString("ar-EG", {
         timeZone: "Africa/Cairo",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
+      }),
+      timestamp: serverTimestamp(),
+    });
 
-      const newRecord = {
-        name: finalItem,
-        quantity: Number(quantity),
-        note,
-        date: now,
-      };
-
-      const updatedRecords = [...records, newRecord];
-      setRecords(updatedRecords);
-      localStorage.setItem("street-out", JSON.stringify(updatedRecords));
-    }
-
+    alert("✅ تم تسجيل الصادر بنجاح.");
     setItem("");
     setCustomItem("");
     setQuantity("");
     setNote("");
-    setEditIndex(null);
   };
 
-  const handleEdit = (index) => {
-    const record = records[index];
-    setItem(record.name);
-    setQuantity(record.quantity);
-    setNote(record.note);
-    setEditIndex(index);
-  };
-
-  const handleDelete = (index) => {
+  const handleDelete = async (id) => {
     const password = prompt("أدخل كلمة المرور للحذف:");
     if (password !== "1234" && password !== "2991034") {
       alert("❌ كلمة المرور غير صحيحة.");
@@ -149,15 +110,8 @@ const StreetOut = () => {
     const confirm = window.confirm("هل أنت متأكد من الحذف؟");
     if (!confirm) return;
 
-    const deleted = records[index];
-    updateStock(deleted.name, deleted.quantity);
-
-    const updatedRecords = records.filter((_, i) => i !== index);
-    setRecords(updatedRecords);
-    localStorage.setItem("street-out", JSON.stringify(updatedRecords));
-
-    const updatedIds = editedIds.filter((id) => id !== deleted.date);
-    updateEditedIds(updatedIds);
+    await deleteDoc(doc(db, "street-out", id));
+    alert("✅ تم الحذف.");
   };
 
   return (
@@ -181,7 +135,6 @@ const StreetOut = () => {
             onChange={(e) => setCustomItem(e.target.value)}
           />
         )}
-        
 
         <input
           type="number"
@@ -196,7 +149,7 @@ const StreetOut = () => {
           onChange={(e) => setNote(e.target.value)}
         />
         <button className="add-button" onClick={handleSubmit}>
-          {editIndex !== null ? "💾 تحديث" : "➕ تسجيل"}
+          ➕ تسجيل
         </button>
       </div>
 
@@ -209,29 +162,18 @@ const StreetOut = () => {
               <th>الكمية</th>
               <th>البيان</th>
               <th>التاريخ</th>
-              <th>تعديل</th>
               <th>حذف</th>
             </tr>
           </thead>
           <tbody>
-            {records.map((rec, index) => (
-              <tr
-                key={index}
-                className={editedIds.includes(rec.date) ? "edited-row" : ""}
-              >
+            {records.map((rec) => (
+              <tr key={rec.id}>
                 <td>{rec.name}</td>
                 <td>{rec.quantity}</td>
                 <td>{rec.note}</td>
                 <td>{rec.date}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>
-                    تعديل
-                  </button>
-                </td>
-                <td>
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>
-                    حذف
-                  </button>
+                  <button className="delete-btn" onClick={() => handleDelete(rec.id)}>حذف</button>
                 </td>
               </tr>
             ))}

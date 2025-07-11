@@ -1,20 +1,22 @@
+// src/pages/BranchReceive.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
-const BranchReceive = () => {
-  const [item, setItem] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("عدد");
-  const [note, setNote] = useState("");
-  const [records, setRecords] = useState([]);
-  const navigate = useNavigate();
-  const { branchId } = useParams();
+/* خريطة الفروع */
+const BRANCH_NAMES = { barka: "بركة السبع", qwesna: "قويسنا" };
 
-  const branchKey = branchId === "barkasaba" ? "barka-receive" : "qwaysna-receive";
-  const branchName = branchId === "barkasaba" ? "بركة السبع" : "قويسنا";
-
-  const productList = [
+/* قائمة أصناف أساسية */
+const BASE_PRODUCTS= [
     "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
     "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
     "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
@@ -32,37 +34,67 @@ const BranchReceive = () => {
     "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا", "أدخل صنف جديد"
   ];
 
+const BranchReceive = () => {
+  const navigate = useNavigate();
+  const { branchId } = useParams();           // barka أو qwesna
+  const branchName = BRANCH_NAMES[branchId] || "فرع غير معروف";
+
+  /* collections */
+  const receiveCol = collection(db, `${branchId}_receive`);
+  const itemsCol   = collection(db, "items");
+
+  /* state */
+  const [productList, setProductList] = useState(BASE_PRODUCTS);
+  const [item, setItem] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("عدد");
+  const [note, setNote] = useState("");
+  const [records, setRecords] = useState([]);
+
+  /* تحميل الأصناف من كولكشن items */
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem(branchKey)) || [];
-    setRecords(stored);
-  }, [branchKey]);
-
-  const handleSubmit = () => {
-    if (!item || !quantity) {
-      alert("من فضلك أدخل اسم الصنف والكمية");
-      return;
-    }
-
-    const now = new Date().toLocaleString("ar-EG", {
-      timeZone: "Africa/Cairo",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    const unsub = onSnapshot(itemsCol, (snap) => {
+      const extra = snap.docs.map((d) => d.id);
+      setProductList([...BASE_PRODUCTS, ...extra]
+        .filter((v, i, arr) => arr.indexOf(v) === i) // unique
+        .sort());
     });
+    return () => unsub();
+  }, []);
 
-    const newRecord = {
+  /* تحميل السجل لحظيًا */
+  useEffect(() => {
+    const unsub = onSnapshot(receiveCol, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setRecords(data);
+    });
+    return () => unsub();
+  }, []);
+
+  /* اختيار صنف (مع إضافة جديد) */
+  const handleSelect = async (val) => {
+    if (val === "__new") {
+      const newProd = prompt("اكتب اسم الصنف الجديد:");
+      if (newProd) {
+        await setDoc(doc(db, "items", newProd), { createdAt: serverTimestamp() });
+        setItem(newProd);
+      }
+    } else {
+      setItem(val);
+    }
+  };
+
+  /* حفظ الاستلام */
+  const handleSubmit = async () => {
+    if (!item || !quantity) return alert("من فضلك أدخل اسم الصنف والكمية");
+
+    await addDoc(receiveCol, {
       name: item,
       quantity: Number(quantity),
       unit,
       note,
-      date: now,
-    };
-
-    const updatedRecords = [...records, newRecord];
-    setRecords(updatedRecords);
-    localStorage.setItem(branchKey, JSON.stringify(updatedRecords));
+      createdAt: serverTimestamp(),
+    });
 
     setItem("");
     setQuantity("");
@@ -71,21 +103,33 @@ const BranchReceive = () => {
     alert("✅ تم تسجيل الاستلام.");
   };
 
+  /* تنسيق التاريخ للعرض */
+  const fmtDate = (ts) =>
+    ts?.seconds
+      ? new Date(ts.seconds * 1000).toLocaleString("ar-EG", {
+          timeZone: "Africa/Cairo",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
+
   return (
-    <div className="factory-page">
+    <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📥 استلام من المصنع - فرع {branchName}</h2>
 
+      {/* نموذج الإدخال */}
       <div className="form-section">
         <div className="form-row">
-          <select
-            value={item}
-            onChange={(e) => setItem(e.target.value)}
-            required
-          >
+          <select value={item} onChange={(e) => handleSelect(e.target.value)} required>
             <option value="">اختر الصنف</option>
-            {productList.map((prod, index) => (
-              <option key={index} value={prod}>{prod}</option>
+            {[...productList, "__new"].map((p) => (
+              <option key={p} value={p}>
+                {p === "__new" ? "➕ إضافة صنف جديد…" : p}
+              </option>
             ))}
           </select>
 
@@ -95,13 +139,12 @@ const BranchReceive = () => {
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
+
           <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-            <option>عدد</option>
-            <option>برنيكة</option>
-            <option>سيرفيز</option>
-            <option>كيلو</option>
-            <option>صاج</option>
+            <option>عدد</option><option>برنيكة</option>
+            <option>سيرفيز</option><option>كيلو</option><option>صاج</option>
           </select>
+
           <input
             type="text"
             placeholder="بيان / ملاحظات"
@@ -112,28 +155,23 @@ const BranchReceive = () => {
         <button onClick={handleSubmit}>💾 تسجيل الاستلام</button>
       </div>
 
+      {/* السجل */}
       <h3 className="page-subtitle">📋 السجل:</h3>
       <table className="styled-table">
         <thead>
           <tr>
-            <th>اسم الصنف</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>البيان</th>
-            <th>التاريخ</th>
+            <th>اسم الصنف</th><th>الكمية</th><th>الوحدة</th>
+            <th>البيان</th><th>التاريخ</th>
           </tr>
         </thead>
         <tbody>
           {records.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            records.map((rec, index) => (
-              <tr key={index}>
-                <td>{rec.name}</td>
-                <td>{rec.quantity}</td>
-                <td>{rec.unit}</td>
-                <td>{rec.note || '-'}</td>
-                <td>{rec.date}</td>
+            records.map((r) => (
+              <tr key={r.id}>
+                <td>{r.name}</td><td>{r.quantity}</td><td>{r.unit}</td>
+                <td>{r.note || "-"}</td><td>{fmtDate(r.createdAt)}</td>
               </tr>
             ))
           )}

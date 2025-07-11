@@ -1,5 +1,16 @@
+// src/pages/Rooms.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const Rooms = () => {
@@ -30,21 +41,22 @@ const Rooms = () => {
     "أدخل صنف جديد"
   ];
 
+  const roomsRef = collection(db, "rooms-store");
+
   useEffect(() => {
-    const storedItems = JSON.parse(localStorage.getItem("roomItems")) || [];
-    setItems(storedItems);
+    const unsubscribe = onSnapshot(roomsRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setItems(data);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const saveToLocalStorage = (data) => {
-    localStorage.setItem("roomItems", JSON.stringify(data));
-  };
-
-  const handleAddOrUpdate = () => {
+  const handleAddOrUpdate = async () => {
     const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
-
     if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
-
-    const today = new Date().toISOString().split("T")[0];
 
     if (editId) {
       const password = prompt("ادخل كلمة السر لتعديل الصنف:");
@@ -53,32 +65,23 @@ const Rooms = () => {
         return;
       }
 
-      const updatedItems = items.map((item) =>
-        item.id === editId
-          ? {
-              ...item,
-              name: finalName,
-              quantity: parseFloat(quantity),
-              unit,
-              isEdited: true,
-            }
-          : item
-      );
-      setItems(updatedItems);
-      saveToLocalStorage(updatedItems);
-      setEditId(null);
-    } else {
-      const newItem = {
-        id: Date.now(),
+      const itemRef = doc(db, "rooms-store", editId);
+      await updateDoc(itemRef, {
         name: finalName,
         quantity: parseFloat(quantity),
         unit,
-        date: today,
+        isEdited: true,
+      });
+      setEditId(null);
+    } else {
+      await addDoc(roomsRef, {
+        name: finalName,
+        quantity: parseFloat(quantity),
+        unit,
+        date: new Date().toISOString().split("T")[0],
         isEdited: false,
-      };
-      const updatedItems = [...items, newItem];
-      setItems(updatedItems);
-      saveToLocalStorage(updatedItems);
+        timestamp: serverTimestamp(),
+      });
     }
 
     setName("");
@@ -87,7 +90,7 @@ const Rooms = () => {
     setUnit("عدد");
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const password = prompt("أدخل كلمة المرور للحذف:");
     if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور غير صحيحة.");
@@ -97,9 +100,7 @@ const Rooms = () => {
     const confirmDelete = window.confirm("هل أنت متأكد من الحذف؟");
     if (!confirmDelete) return;
 
-    const updatedItems = items.filter((item) => item.id !== id);
-    setItems(updatedItems);
-    saveToLocalStorage(updatedItems);
+    await deleteDoc(doc(db, "rooms-store", id));
   };
 
   const handleEdit = (item) => {
@@ -112,19 +113,14 @@ const Rooms = () => {
 
   return (
     <div className="page-container" dir="rtl">
-      <button className="back-button" onClick={() => navigate(-1)}>
-        ⬅ رجوع
-      </button>
-
+      <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🢨 غرفة التبريد</h2>
 
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
           {itemOptions.map((item, idx) => (
-            <option key={idx} value={item}>
-              {item}
-            </option>
+            <option key={idx} value={item}>{item}</option>
           ))}
         </select>
 
@@ -179,17 +175,10 @@ const Rooms = () => {
               <td>{item.unit}</td>
               <td>{item.date}</td>
               <td>
-                <button className="edit-btn" onClick={() => handleEdit(item)}>
-                  تعديل
-                </button>
+                <button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button>
               </td>
               <td>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  حذف
-                </button>
+                <button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button>
               </td>
             </tr>
           ))}

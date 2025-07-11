@@ -1,5 +1,15 @@
+// src/pages/Cuts.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Cuts = () => {
@@ -10,84 +20,74 @@ const Cuts = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  const collectionRef = collection(db, "cutsOrders");
+
+  /* قراءة لحظيّة من Firestore */
   useEffect(() => {
-    const stored = localStorage.getItem("cutsOrders");
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    const unsub = onSnapshot(collectionRef, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setItems(data);
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("cutsOrders", JSON.stringify(items));
-  }, [items]);
-
-  const handleAdd = () => {
-    if (!name || !quantity) {
-      alert("يرجى إدخال اسم الصنف والكمية.");
-      return;
-    }
+  /* إضافة صنف */
+  const handleAdd = async () => {
+    if (!name || !quantity) return alert("يرجى إدخال اسم الصنف والكمية.");
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
-    setItems([...items, newItem]);
+    await addDoc(collectionRef, {
+      name,
+      quantity: parseInt(quantity),
+      unit,
+      date,
+      updated: false,
+    });
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
-    const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234" || password === "2991034") {
-      const updated = [...items];
-      updated.splice(index, 1);
-      setItems(updated);
-    } else {
-      alert("كلمة المرور خاطئة.");
-    }
+  /* حذف صنف */
+  const handleDelete = async (id) => {
+    const pwd = prompt("ادخل كلمة المرور لحذف الصنف:");
+    if (pwd === "1234" || pwd === "2991034") await deleteDoc(doc(db, "cutsOrders", id));
+    else alert("كلمة المرور خاطئة.");
   };
 
-  const handleEdit = (index) => {
-    const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
+  /* تعديل صنف */
+  const handleEdit = async (item) => {
+    const pwd = prompt("ادخل كلمة المرور لتعديل الصنف:");
+    if (pwd !== "1234" && pwd !== "2991034") return alert("كلمة المرور خاطئة.");
 
-    const currentItem = items[index];
-    const newName = prompt("اسم الصنف الجديد:", currentItem.name);
-    const newQuantity = prompt("الكمية الجديدة:", currentItem.quantity);
-    const newUnit = prompt("الوحدة الجديدة:", currentItem.unit);
+    const newName = prompt("اسم الصنف الجديد:", item.name);
+    const newQty  = prompt("الكمية الجديدة:", item.quantity);
+    const newUnit = prompt("الوحدة الجديدة:", item.unit);
+    if (!newName || !newQty || !newUnit) return alert("لم يتم تعديل البيانات.");
 
-    if (!newName || !newQuantity || !newUnit) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
-
-    const updated = [...items];
-    updated[index] = {
-      ...currentItem,
+    await updateDoc(doc(db, "cutsOrders", item.id), {
       name: newName,
-      quantity: parseInt(newQuantity),
+      quantity: parseInt(newQty),
       unit: newUnit,
       updated: true,
-    };
-    setItems(updated);
+    });
   };
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-      item.date.includes(searchTerm.trim())
+  /* فلترة البحث */
+  const filtered = items.filter(
+    (it) =>
+      it.name.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+      it.date.includes(searchTerm.trim())
   );
 
   return (
     <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🔪 أوردرات التقطيعات</h2>
+      <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
-      <button onClick={() => window.print()} className="print-btn">🖨️ طباعة</button>
-
+      {/* نموذج الإدخال */}
       <div className="form-row">
         <input
           type="text"
@@ -110,9 +110,10 @@ const Cuts = () => {
         <button className="add-button" onClick={handleAdd}>تسجيل الصنف</button>
       </div>
 
+      {/* البحث */}
       <input
-        type="text"
         className="search"
+        type="text"
         placeholder="بحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
@@ -123,10 +124,11 @@ const Cuts = () => {
           marginBottom: "15px",
           fontSize: "16px",
           width: "300px",
-          textAlign: "center"
+          textAlign: "center",
         }}
       />
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
           <tr>
@@ -138,21 +140,18 @@ const Cuts = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredItems.length === 0 ? (
+          {filtered.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item, index) => (
-              <tr
-                key={index}
-                className={item.updated ? "edited-row" : ""}
-              >
-                <td>{item.date}</td>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.unit}</td>
+            filtered.map((it) => (
+              <tr key={it.id} className={it.updated ? "edited-row" : ""}>
+                <td>{it.date}</td>
+                <td>{it.name}</td>
+                <td>{it.quantity}</td>
+                <td>{it.unit}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(it)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(it.id)}>🗑️</button>
                 </td>
               </tr>
             ))

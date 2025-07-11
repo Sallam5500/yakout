@@ -1,5 +1,18 @@
+// src/pages/RoomsOut.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const RoomsOut = () => {
@@ -8,54 +21,29 @@ const RoomsOut = () => {
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [records, setRecords] = useState([]);
-  const [editedIds, setEditedIds] = useState([]);
-  const [editIndex, setEditIndex] = useState(null);
-
   const navigate = useNavigate();
 
- const itemOptions = [
-    "بيض",
-    "مانجا فليت",
-    "فرولة فليت",
-    "كيوي فليت",
-    "مربي مشمش",
-    "لباني ",
-    "جبنه تشيز كيك ",
-    "رومانتك ابيض ",
-    "رومانتك اسمر ",
-    "بشر اسمر ",
-    "بشر ابيض ",
-    "لوتس ",
-    "نوتيلا ",
-    "جناش جديد ",
-    "جناش  ",
-    "أدخل صنف جديد"
+  const itemOptions = [
+    "بيض","مانجا فليت","فرولة فليت","كيوي فليت","مربي مشمش","لباني",
+    "جبنه تشيز كيك","رومانتك ابيض","رومانتك اسمر","بشر اسمر","بشر ابيض",
+    "لوتس","نوتيلا","جناش جديد","جناش","أدخل صنف جديد"
   ];
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("rooms-out")) || [];
-    setRecords(stored);
+  // Collections
+  const roomsStoreRef = collection(db, "rooms-store");
+  const roomsOutRef   = collection(db, "rooms-out");
 
-    const storedEdited = JSON.parse(localStorage.getItem("rooms-out-edited")) || [];
-    setEditedIds(storedEdited);
+  // قراءة السجلات لحظيًّا
+  useEffect(() => {
+    const unsub = onSnapshot(roomsOutRef, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setRecords(data);
+    });
+    return () => unsub();
   }, []);
 
-  const updateEditedIds = (ids) => {
-    setEditedIds(ids);
-    localStorage.setItem("rooms-out-edited", JSON.stringify(ids));
-  };
-
-  const updateStock = (name, qtyChange) => {
-    const stock = JSON.parse(localStorage.getItem("roomItems")) || [];
-    const updated = stock.map((row) =>
-      row.name.trim().toLowerCase() === name.trim().toLowerCase()
-        ? { ...row, quantity: row.quantity + qtyChange }
-        : row
-    );
-    localStorage.setItem("roomItems", JSON.stringify(updated));
-  };
-
-  const handleSubmit = () => {
+  // إضافة سجل خروج
+  const handleSubmit = async () => {
     const finalItem = item === "أدخل صنف جديد" ? customItem.trim() : item.trim();
 
     if (!finalItem || !quantity) {
@@ -63,107 +51,57 @@ const RoomsOut = () => {
       return;
     }
 
-    if (editIndex !== null) {
-      const password = prompt("أدخل كلمة المرور للتعديل:");
-      if (password !== "1234" && password !== "2991034") {
-        alert("❌ كلمة المرور غير صحيحة.");
-        return;
-      }
+    // 1) تحقّق من توفر الصنف والكمية
+    const q = query(roomsStoreRef, where("name", "==", finalItem));
+    const snap = await getDocs(q);
 
-      const oldRecord = records[editIndex];
-      const diff = oldRecord.quantity - Number(quantity);
-      updateStock(oldRecord.name, diff);
+    if (snap.empty) {
+      alert("❌ هذا الصنف غير موجود في قسم الغرف.");
+      return;
+    }
 
-      const updatedRecord = {
-        ...oldRecord,
-        name: finalItem,
-        quantity: Number(quantity),
-        note,
-      };
+    const stockDoc = snap.docs[0];
+    const available = stockDoc.data().quantity;
+    if (Number(quantity) > available) {
+      alert(`❌ الكمية غير كافية. المتاح: ${available}`);
+      return;
+    }
 
-      const updatedRecords = [...records];
-      updatedRecords[editIndex] = updatedRecord;
-      setRecords(updatedRecords);
-      localStorage.setItem("rooms-out", JSON.stringify(updatedRecords));
-
-      const updatedIds = [...editedIds, oldRecord.date];
-      updateEditedIds([...new Set(updatedIds)]);
-
-      alert("✅ تم تعديل الصنف.");
-    } else {
-      const stock = JSON.parse(localStorage.getItem("roomItems")) || [];
-      const found = stock.some(
-        (row) => row.name.trim().toLowerCase() === finalItem.toLowerCase()
-      );
-      if (!found) {
-        alert("❌ هذا الصنف غير موجود في قسم الغرف.");
-        return;
-      }
-
-      const updatedStock = stock.map((row) =>
-        row.name.trim().toLowerCase() === finalItem.toLowerCase()
-          ? { ...row, quantity: row.quantity - Number(quantity) }
-          : row
-      );
-      localStorage.setItem("roomItems", JSON.stringify(updatedStock));
-
-      const now = new Date().toLocaleString("ar-EG", {
+    // 2) أضف سجل الصادر (بدون خصم فعلي)
+    await addDoc(roomsOutRef, {
+      name: finalItem,
+      quantity: Number(quantity),
+      note,
+      date: new Date().toLocaleString("ar-EG", {
         timeZone: "Africa/Cairo",
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      });
+      }),
+      timestamp: serverTimestamp(),
+    });
 
-      const newRecord = {
-        name: finalItem,
-        quantity: Number(quantity),
-        note,
-        date: now,
-      };
-
-      const updatedRecords = [...records, newRecord];
-      setRecords(updatedRecords);
-      localStorage.setItem("rooms-out", JSON.stringify(updatedRecords));
-    }
-
-    // Reset
+    alert("✅ تم تسجيل الصادر بنجاح.");
     setItem("");
     setCustomItem("");
     setQuantity("");
     setNote("");
-    setEditIndex(null);
   };
 
-  const handleEdit = (index) => {
-    const record = records[index];
-    setItem(itemOptions.includes(record.name) ? record.name : "أدخل صنف جديد");
-    setCustomItem(record.name);
-    setQuantity(record.quantity);
-    setNote(record.note);
-    setEditIndex(index);
-  };
-
-  const handleDelete = (index) => {
+  // حذف سجل خروج
+  const handleDelete = async (id) => {
     const password = prompt("أدخل كلمة المرور للحذف:");
     if (password !== "1234" && password !== "2991034") {
       alert("❌ كلمة المرور غير صحيحة.");
       return;
     }
-
     const confirm = window.confirm("هل أنت متأكد من الحذف؟");
     if (!confirm) return;
 
-    const deleted = records[index];
-    updateStock(deleted.name, deleted.quantity);
-
-    const updatedRecords = records.filter((_, i) => i !== index);
-    setRecords(updatedRecords);
-    localStorage.setItem("rooms-out", JSON.stringify(updatedRecords));
-
-    const updatedIds = editedIds.filter((id) => id !== deleted.date);
-    updateEditedIds(updatedIds);
+    await deleteDoc(doc(db, "rooms-out", id));
+    alert("✅ تم الحذف.");
   };
 
   return (
@@ -200,9 +138,7 @@ const RoomsOut = () => {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <button className="add-button" onClick={handleSubmit}>
-          {editIndex !== null ? "💾 تحديث" : "➕ تسجيل"}
-        </button>
+        <button className="add-button" onClick={handleSubmit}>➕ تسجيل</button>
       </div>
 
       <h3 className="table-title">📑 سجل الصادر:</h3>
@@ -214,25 +150,18 @@ const RoomsOut = () => {
               <th>الكمية</th>
               <th>البيان</th>
               <th>التاريخ</th>
-              <th>تعديل</th>
               <th>حذف</th>
             </tr>
           </thead>
           <tbody>
-            {records.map((rec, index) => (
-              <tr
-                key={index}
-                className={editedIds.includes(rec.date) ? "edited-row" : ""}
-              >
+            {records.map((rec) => (
+              <tr key={rec.id}>
                 <td>{rec.name}</td>
                 <td>{rec.quantity}</td>
                 <td>{rec.note}</td>
                 <td>{rec.date}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>تعديل</button>
-                </td>
-                <td>
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>حذف</button>
+                  <button className="delete-btn" onClick={() => handleDelete(rec.id)}>حذف</button>
                 </td>
               </tr>
             ))}

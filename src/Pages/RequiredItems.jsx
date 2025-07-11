@@ -1,4 +1,15 @@
+// src/pages/RequiredItems.jsx
 import React, { useState, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
 
@@ -10,75 +21,87 @@ const RequiredItems = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  // تحميل البيانات من Firestore لحظيًا
   useEffect(() => {
-    const stored = localStorage.getItem("requiredItems");
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    const unsub = onSnapshot(collection(db, "required-items"), (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setItems(
+        data.sort(
+          (a, b) =>
+            b.createdAt?.seconds - a.createdAt?.seconds
+        )
+      );
+    });
+
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("requiredItems", JSON.stringify(items));
-  }, [items]);
-
-  const handleAdd = () => {
+  // إضافة صنف جديد
+  const handleAdd = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
-    const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
-    setItems([...items, newItem]);
+    await addDoc(collection(db, "required-items"), {
+      name,
+      quantity: parseInt(quantity),
+      unit,
+      createdAt: serverTimestamp(),
+      updated: false,
+    });
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
+  // حذف صنف
+  const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password === "1234" || password === "2991034") {
-      const updated = [...items];
-      updated.splice(index, 1);
-      setItems(updated);
+      await deleteDoc(doc(db, "required-items", id));
     } else {
       alert("كلمة المرور خاطئة.");
     }
   };
 
-  const handleEdit = (index) => {
+  // تعديل صنف
+  const handleEdit = async (item) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
     if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const current = items[index];
-    const newName = prompt("اسم الصنف الجديد:", current.name);
-    const newQuantity = prompt("الكمية الجديدة:", current.quantity);
-    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", current.unit);
+    const newName = prompt("اسم الصنف الجديد:", item.name);
+    const newQuantity = prompt("الكمية الجديدة:", item.quantity);
+    const newUnit = prompt("الوحدة الجديدة (عدد أو كيلو):", item.unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
       return;
     }
 
-    const updated = [...items];
-    updated[index] = {
-      ...current,
+    await updateDoc(doc(db, "required-items", item.id), {
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
       updated: true,
-    };
-    setItems(updated);
+    });
   };
 
+  // فلترة
   const filteredItems = items.filter(
     (item) =>
       item.name.includes(searchTerm.trim()) ||
-      item.date.includes(searchTerm.trim())
+      (item.createdAt &&
+        new Date(item.createdAt.seconds * 1000)
+          .toLocaleDateString("fr-CA")
+          .includes(searchTerm.trim()))
   );
 
   return (
@@ -87,6 +110,7 @@ const RequiredItems = () => {
       <h2 className="page-title">📄 الاحتياجات المطلوبة من الخارج</h2>
       <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
+      {/* الإدخال */}
       <div className="form-row">
         <input
           type="text"
@@ -107,6 +131,7 @@ const RequiredItems = () => {
         <button className="add-button" onClick={handleAdd}>تسجيل احتياج</button>
       </div>
 
+      {/* البحث */}
       <input
         type="text"
         className="search"
@@ -124,6 +149,7 @@ const RequiredItems = () => {
         }}
       />
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
           <tr>
@@ -141,14 +167,18 @@ const RequiredItems = () => {
             </tr>
           ) : (
             filteredItems.map((item, index) => (
-              <tr key={index} className={item.updated ? "edited-row" : ""}>
-                <td>{item.date}</td>
+              <tr key={item.id} className={item.updated ? "edited-row" : ""}>
+                <td>
+                  {item.createdAt
+                    ? new Date(item.createdAt.seconds * 1000).toLocaleDateString("fr-CA")
+                    : "—"}
+                </td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(item)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(item.id)}>🗑️</button>
                 </td>
               </tr>
             ))

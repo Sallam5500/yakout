@@ -19,9 +19,7 @@ import RequiredItems from "./Pages/RequiredItems";
 import StockPage from "./Pages/StockPage";
 import ExportPage from "./Pages/ExportPage";
 import TruckMenu from "./Pages/TruckMenu";
-import TruckBarka from "./Pages/TruckBarka";
-import TruckQwesna from "./Pages/TruckQwesna";
-import TruckReceive from "./Pages/TruckReceive";
+import TruckLoadingPage from "./Pages/TruckLoadingPage";
 import IncomingGoods from "./Pages/IncomingGoods";
 import OrdersMenu from "./Pages/OrdersMenu";
 import Eastern from "./Pages/Eastern";
@@ -74,9 +72,7 @@ const App = () => {
         <Route path="/factory/employees" element={<Employees />} />
         <Route path="/factory/required-items" element={<RequiredItems />} />
         <Route path="/factory/truck-loading" element={<TruckMenu />} />
-        <Route path="/factory/truck-loading/barka" element={<TruckBarka />} />
-        <Route path="/factory/truck-loading/qwesna" element={<TruckQwesna />} />
-        <Route path="/factory/truck-loading/receive" element={<TruckReceive />} />
+     <Route path="/factory/truck-loading/:branch" element={<TruckLoadingPage />} />
         <Route path="/factory/incoming" element={<IncomingGoods />} />
         <Route path="/factory/orders" element={<OrdersMenu />} />
         <Route path="/factory/orders/eastern" element={<Eastern />} />

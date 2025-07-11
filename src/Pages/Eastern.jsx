@@ -1,5 +1,15 @@
+// src/pages/Eastern.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Eastern = () => {
@@ -10,69 +20,70 @@ const Eastern = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  const collectionRef = collection(db, "easternOrders");
+
   useEffect(() => {
-    const stored = localStorage.getItem("easternOrders");
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    const unsubscribe = onSnapshot(collectionRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setItems(data);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("easternOrders", JSON.stringify(items));
-  }, [items]);
-
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
 
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
-    setItems([...items, newItem]);
+    await addDoc(collectionRef, {
+      name,
+      quantity: parseInt(quantity),
+      unit,
+      date,
+      updated: false,
+    });
 
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
+  const handleDelete = async (id) => {
     const password = prompt("ادخل كلمة المرور لحذف الصنف:");
     if (password === "1234" || password === "2991034") {
-      const updated = [...items];
-      updated.splice(index, 1);
-      setItems(updated);
+      await deleteDoc(doc(db, "easternOrders", id));
     } else {
       alert("كلمة المرور خاطئة.");
     }
   };
 
-  const handleEdit = (index) => {
+  const handleEdit = async (item) => {
     const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
     if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور خاطئة.");
       return;
     }
 
-    const currentItem = items[index];
-    const newName = prompt("اسم الصنف الجديد:", currentItem.name);
-    const newQuantity = prompt("الكمية الجديدة:", currentItem.quantity);
-    const newUnit = prompt("الوحدة الجديدة:", currentItem.unit);
+    const newName = prompt("اسم الصنف الجديد:", item.name);
+    const newQuantity = prompt("الكمية الجديدة:", item.quantity);
+    const newUnit = prompt("الوحدة الجديدة:", item.unit);
 
     if (!newName || !newQuantity || !newUnit) {
       alert("لم يتم تعديل البيانات.");
       return;
     }
 
-    const updated = [...items];
-    updated[index] = {
-      ...currentItem,
+    await updateDoc(doc(db, "easternOrders", item.id), {
       name: newName,
       quantity: parseInt(newQuantity),
       unit: newUnit,
       updated: true,
-    };
-    setItems(updated);
+    });
   };
 
   const filteredItems = items.filter(
@@ -104,7 +115,7 @@ const Eastern = () => {
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
           <option value="صاج">صاج</option>
-          <option value="صينية">صينيه</option>
+          <option value="صينية">صينية</option>
           <option value="كيلو">كيلو</option>
           <option value="سيرفيز">سيرفيز</option>
         </select>
@@ -140,22 +151,17 @@ const Eastern = () => {
         </thead>
         <tbody>
           {filteredItems.length === 0 ? (
-            <tr>
-              <td colSpan="5">لا توجد بيانات.</td>
-            </tr>
+            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item, index) => (
-              <tr
-                key={index}
-                className={item.updated ? "edited-row" : ""}
-              >
+            filteredItems.map((item) => (
+              <tr key={item.id} className={item.updated ? "edited-row" : ""}>
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
                 <td>{item.unit}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(item)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(item.id)}>🗑️</button>
                 </td>
               </tr>
             ))

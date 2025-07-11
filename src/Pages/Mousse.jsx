@@ -1,5 +1,15 @@
+// src/pages/Mousse.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Mousse = () => {
@@ -10,83 +20,66 @@ const Mousse = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
+  const collectionRef = collection(db, "mousseOrders");
+
   useEffect(() => {
-    const stored = localStorage.getItem("mousseOrders");
-    if (stored) {
-      setItems(JSON.parse(stored));
-    }
+    const unsub = onSnapshot(collectionRef, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setItems(data);
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("mousseOrders", JSON.stringify(items));
-  }, [items]);
-
-  const handleAdd = () => {
-    if (!name || !quantity) {
-      alert("يرجى إدخال اسم الصنف والكمية.");
-      return;
-    }
-
+  const handleAdd = async () => {
+    if (!name || !quantity) return alert("يرجى إدخال اسم الصنف والكمية.");
     const date = new Date().toLocaleDateString("fr-CA");
-    const newItem = { name, quantity: parseInt(quantity), unit, date, updated: false };
-    setItems([...items, newItem]);
-
+    await addDoc(collectionRef, {
+      name,
+      quantity: parseInt(quantity),
+      unit,
+      date,
+      updated: false,
+    });
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  const handleDelete = (index) => {
-    const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234" || password === "2991034") {
-      const updated = [...items];
-      updated.splice(index, 1);
-      setItems(updated);
-    } else {
-      alert("كلمة المرور خاطئة.");
-    }
+  const handleDelete = async (id) => {
+    const pwd = prompt("ادخل كلمة المرور لحذف الصنف:");
+    if (pwd === "1234" || pwd === "2991034") await deleteDoc(doc(db, "mousseOrders", id));
+    else alert("كلمة المرور خاطئة.");
   };
 
-  const handleEdit = (index) => {
-    const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
+  const handleEdit = async (item) => {
+    const pwd = prompt("ادخل كلمة المرور لتعديل الصنف:");
+    if (pwd !== "1234" && pwd !== "2991034") return alert("كلمة المرور خاطئة.");
 
-    const currentItem = items[index];
-    const newName = prompt("اسم الصنف الجديد:", currentItem.name);
-    const newQuantity = prompt("الكمية الجديدة:", currentItem.quantity);
-    const newUnit = prompt("الوحدة الجديدة:", currentItem.unit);
+    const newName = prompt("اسم الصنف الجديد:", item.name);
+    const newQty = prompt("الكمية الجديدة:", item.quantity);
+    const newUnit = prompt("الوحدة الجديدة:", item.unit);
 
-    if (!newName || !newQuantity || !newUnit) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
+    if (!newName || !newQty || !newUnit) return alert("لم يتم تعديل البيانات.");
 
-    const updated = [...items];
-    updated[index] = {
-      ...currentItem,
+    await updateDoc(doc(db, "mousseOrders", item.id), {
       name: newName,
-      quantity: parseInt(newQuantity),
+      quantity: parseInt(newQty),
       unit: newUnit,
       updated: true,
-    };
-    setItems(updated);
+    });
   };
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
-      item.date.includes(searchTerm.trim())
+  const filtered = items.filter(
+    (it) =>
+      it.name.toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+      it.date.includes(searchTerm.trim())
   );
 
   return (
     <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🍧 أوردرات الموس</h2>
-
-      <button onClick={() => window.print()} className="print-btn">🖨️ طباعة</button>
+      <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
       <div className="form-row">
         <input
@@ -110,8 +103,8 @@ const Mousse = () => {
       </div>
 
       <input
-        type="text"
         className="search"
+        type="text"
         placeholder="بحث بالاسم أو التاريخ"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
@@ -122,7 +115,7 @@ const Mousse = () => {
           marginBottom: "15px",
           fontSize: "16px",
           width: "300px",
-          textAlign: "center"
+          textAlign: "center",
         }}
       />
 
@@ -137,21 +130,18 @@ const Mousse = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredItems.length === 0 ? (
+          {filtered.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item, index) => (
-              <tr
-                key={index}
-                className={item.updated ? "edited-row" : ""}
-              >
-                <td>{item.date}</td>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.unit}</td>
+            filtered.map((it) => (
+              <tr key={it.id} className={it.updated ? "edited-row" : ""}>
+                <td>{it.date}</td>
+                <td>{it.name}</td>
+                <td>{it.quantity}</td>
+                <td>{it.unit}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(index)}>✏️</button>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(index)}>🗑️</button>
+                  <button className="edit-btn" onClick={() => handleEdit(it)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(it.id)}>🗑️</button>
                 </td>
               </tr>
             ))
