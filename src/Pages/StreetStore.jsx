@@ -1,6 +1,7 @@
+// src/pages/StreetStore.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../firebase"; // تأكد إنك عامل ملف firebase.js فيه config
+import { db } from "../firebase";
 import {
   collection,
   addDoc,
@@ -9,97 +10,170 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
+/* تطبيع الاسم: إزالة الفراغات الزائدة + أحرف صغيرة */
+const normalize = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
+/* قائمة الأصناف الأساسية (كل عنصر .trim() لتجنّب الفراغ الأوّل) */
+const BASE_ITEMS = [
+  "شكارة كريمه",
+  "بسبوسة",
+  "كيس بندق ني بسبوسة",
+  "هريسة",
+  "بسيمة",
+  "حبيبه",
+  "رموش",
+  "لينزا",
+  "جلاش",
+  "نشابه",
+  "صوابع",
+  "بلح",
+  "علب كريمة",
+  "قشطوطة",
+  "فادج",
+  "كيس كاكو 1.750 جرام",
+  "كيس جرانه",
+  "عزيزية",
+  "بسبوسة تركي",
+  "شكارة سوداني مكسر",
+  "ك بندق ني مكسر",
+  "كيس سوداني روشيه",
+  "كيس بندق محمص 250 جرام",
+  "كيس أكلير",
+  "كرتونة بندق سليم",
+  "ك سكر بودره",
+  "ك جوز هند ناعم",
+  "ك سميد",
+  "جيلاتينة",
+  "ك لبن بودره",
+  "كيس لبن بودره 150 جرام",
+  "شيكولاته اسمر",
+  "شيكولاته بيضاء",
+  "كرتونة زيت",
+  "جركن زيت",
+  "لباني",
+  "باستري",
+  "فانليا",
+  "فاكيوم 7سم",
+  "لون احمر",
+  "علب طلبية",
+  "كرتونة خميرة فورية",
+  "سمنة فرن",
+  "نشا",
+  "سكر",
+  "دقيق اهرام",
+  "وجبة بتي فور",
+  "جوز هند محمص",
+  "لوز محمص مجروش",
+  "جوز هند ابيض",
+  "وجبة بسكوت",
+  "رابطة حلويات",
+  "علب بتي فور نص",
+  "علب بسكوت نص",
+  "علب غريبة نص",
+  "علب كعك ساده نص",
+  "علب كعك ملبن نص",
+  "لعب جاتوه",
+  "دفتر ترنسفير الوان",
+  "ملبن",
+  "وجبه سيرب",
+  "بكر استرتش",
+  "ورق سلوفان موس",
+  "علب جاتوه دسته",
+  "دفتر ترانسفير ساده",
+  "كرتونة بكين بودر",
+  "ستان 2سم",
+  "جيلي شفاف",
+  "جيلي سخن"
+];
+
+
 const StreetStore = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const [name, setName]             = useState("");
   const [customName, setCustomName] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("عدد");
-  const [items, setItems] = useState([]);
-  const [editId, setEditId] = useState(null);
+  const [quantity, setQuantity]     = useState("");
+  const [unit, setUnit]             = useState("عدد");
+  const [items, setItems]           = useState([]);
+  const [editId, setEditId]         = useState(null);
+  const [itemOptions, setItemOptions] = useState([...BASE_ITEMS, "أدخل صنف جديد"]);
 
-  const itemOptions = ["شكارة كريمه",  "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", " رموش", 
-    "لينزا", "جلاش", "نشابه", "صوابع", "بلح", "علب كريمة", "قشطوطة", 
-    "فادج ", "كيس كاكو1.750جرام ", " كيس جرانه", "عزيزية ", "بسبوسة تركي ",
-    "شكارة سوداني مكسر ", "ك بندق ني مكسر  ", " كيس سوداني روشيه", "كيس بندق محمص250جرام ", " كيس أكلير ",
-    "كرتونة بندق سليم", "ك سكر بودره ", " ك جوز هند ناعم", "ك سميد", "جيلاتينة","ك لبن بودره",
-    "كيس لبن بودره 150 جرام","شيكولاته اسمر","شيكولاته بيضاء","كرتونة زيت","جركن زيت","لباني","باستري",
-    "فانليا","فاكيوم 7سم",
-    "لون احمر","علب طلبية","كرتونة خميرة فورية","سمنة فرن","نشا","سكر","دقيق اهرام","وجبة بتي فور","جوز هند محمص",
-    "لوز محمص مجروش","جوز هند ابيض","وجبة بسكوت","رابطة حلويات","علب بتي فور نص","علب بسكوت نص","علب غريبة نص",
-    "علب كعك ساده نص","علب كعك ملبن نص","لعب جاتوه","دفتر ترنسفير الوان","ملبن","وجبه سيرب","بكر استرتش",
-    "ورق سلوفان موس","علب جاتوه دسته","دفتر ترانسفير ساده","كرتونة بكين بودر ","ستان 2سم","جيلي شفاف","جيلي سخن", "أدخل صنف جديد"];
+  /* Collections */
+  const storeCol = collection(db, "street-store");
+  const itemsCol = collection(db, "items");    // للاحتفاظ بالأصناف المشتركة
 
-  const streetStoreRef = collection(db, "street-store");
-
+  /* تحميل الأصناف الديناميكية */
   useEffect(() => {
-    const unsubscribe = onSnapshot(streetStoreRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setItems(data);
+    const unsub = onSnapshot(itemsCol, (snap) => {
+      const extra = snap.docs.map((d) => d.id);
+      setItemOptions([...BASE_ITEMS, ...extra, "أدخل صنف جديد"]
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .sort());
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  /* تحميل مخزون الشارع */
+  useEffect(() => {
+    const unsub = onSnapshot(storeCol, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setItems(data);
+    });
+    return () => unsub();
+  }, []);
+
+  /* إضافة أو تحديث */
   const handleAddOrUpdate = async () => {
-    const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
+    const rawName   = name === "أدخل صنف جديد" ? customName : name;
+    const finalName = rawName.trim();
+    const key       = normalize(finalName);
+
     if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
 
-    if (editId) {
-      const password = prompt("ادخل كلمة السر لتعديل الصنف:");
-      if (password !== "1234" && password !== "2991034") {
-        alert("كلمة المرور غير صحيحة");
-        return;
-      }
+    /* حفظ الصنف الجديد في كولكشن items إن لم يكن موجود */
+    if (name === "أدخل صنف جديد") {
+      await setDoc(doc(db, "items", finalName), { createdAt: serverTimestamp() });
+    }
 
-      const itemRef = doc(db, "street-store", editId);
-      await updateDoc(itemRef, {
+    if (editId) {
+      const pwd = prompt("ادخل كلمة السر لتعديل الصنف:");
+      if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة");
+      await updateDoc(doc(db, "street-store", editId), {
         name: finalName,
+        nameKey: key,
         quantity: parseFloat(quantity),
         unit,
         isEdited: true,
       });
       setEditId(null);
     } else {
-      await addDoc(streetStoreRef, {
+      await addDoc(storeCol, {
         name: finalName,
+        nameKey: key,
         quantity: parseFloat(quantity),
         unit,
         date: new Date().toISOString().split("T")[0],
         isEdited: false,
-        timestamp: serverTimestamp(), // للفرز لاحقًا
+        timestamp: serverTimestamp(),
       });
     }
 
-    setName("");
-    setCustomName("");
-    setQuantity("");
-    setUnit("عدد");
+    setName(""); setCustomName(""); setQuantity(""); setUnit("عدد");
   };
 
   const handleDelete = async (id) => {
-    const password = prompt("أدخل كلمة المرور للحذف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("كلمة المرور غير صحيحة.");
-      return;
-    }
-    const confirmDelete = window.confirm("هل أنت متأكد من الحذف؟");
-    if (!confirmDelete) return;
-
+    const pwd = prompt("أدخل كلمة المرور للحذف:");
+    if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة.");
+    if (!window.confirm("هل أنت متأكد من الحذف؟")) return;
     await deleteDoc(doc(db, "street-store", id));
   };
 
-  const handleEdit = (item) => {
-    setName(item.name);
-    setCustomName("");
-    setQuantity(item.quantity);
-    setUnit(item.unit);
-    setEditId(item.id);
+  const handleEdit = (it) => {
+    setName(it.name); setCustomName(""); setQuantity(it.quantity);
+    setUnit(it.unit); setEditId(it.id);
   };
 
   return (
@@ -107,17 +181,17 @@ const StreetStore = () => {
       <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🏪 المخزن اللي في الشارع</h2>
 
+      {/* نموذج */}
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {itemOptions.map((item, idx) => (
-            <option key={idx} value={item}>{item}</option>
+          {itemOptions.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
 
         {name === "أدخل صنف جديد" && (
           <input
-            type="text"
             placeholder="أدخل اسم الصنف"
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
@@ -130,50 +204,29 @@ const StreetStore = () => {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option>عدد</option>
-          <option>كيلو</option>
-          <option>شكارة</option>
-          <option>جرام</option>
-          <option>برمل</option>
-          <option>كيس</option>
-          <option>جردل</option>
+          <option>عدد</option><option>كيلو</option><option>شكارة</option>
+          <option>جرام</option><option>برمل</option><option>كيس</option><option>جردل</option>
         </select>
+
         <button className="add-button" onClick={handleAddOrUpdate}>
           {editId ? "تحديث" : "إضافة"}
         </button>
       </div>
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
-          <tr>
-            <th>الاسم</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>التاريخ</th>
-            <th>تعديل</th>
-            <th>حذف</th>
-          </tr>
+          <tr><th>الاسم</th><th>الكمية</th><th>الوحدة</th>
+              <th>التاريخ</th><th>تعديل</th><th>حذف</th></tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr
-              key={item.id}
-              style={{
-                backgroundColor: item.isEdited ? "#ffcccc" : "transparent",
-                textAlign: "center",
-              }}
-            >
-              <td>{item.name}</td>
-              <td>{item.quantity}</td>
-              <td>{item.unit}</td>
-              <td>{item.date}</td>
-              <td>
-                <button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button>
-              </td>
-              <td>
-                <button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button>
-              </td>
+          {items.map((it) => (
+            <tr key={it.id} style={{ backgroundColor: it.isEdited ? "#ffcccc" : "transparent" }}>
+              <td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td><td>{it.date}</td>
+              <td><button className="edit-btn" onClick={() => handleEdit(it)}>تعديل</button></td>
+              <td><button className="delete-btn" onClick={() => handleDelete(it.id)}>حذف</button></td>
             </tr>
           ))}
         </tbody>

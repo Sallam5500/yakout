@@ -3,115 +3,179 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  where,
-  getDocs,
-  serverTimestamp,
-  deleteDoc,
-  doc,
+  collection, addDoc, onSnapshot,
+  query, where, getDocs, serverTimestamp,
+  deleteDoc, doc, setDoc,
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
+const normalize = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
+
+const BASE_ITEMS = [
+  "شكارة كريمه",
+  "بسبوسة",
+  "كيس بندق ني بسبوسة",
+  "هريسة",
+  "بسيمة",
+  "حبيبه",
+  "رموش",
+  "لينزا",
+  "جلاش",
+  "نشابه",
+  "صوابع",
+  "بلح",
+  "علب كريمة",
+  "قشطوطة",
+  "فادج",
+  "كيس كاكو 1.750 جرام",
+  "كيس جرانه",
+  "عزيزية",
+  "بسبوسة تركي",
+  "شكارة سوداني مكسر",
+  "ك بندق ني مكسر",
+  "كيس سوداني روشيه",
+  "كيس بندق محمص 250 جرام",
+  "كيس أكلير",
+  "كرتونة بندق سليم",
+  "ك سكر بودره",
+  "ك جوز هند ناعم",
+  "ك سميد",
+  "جيلاتينة",
+  "ك لبن بودره",
+  "كيس لبن بودره 150 جرام",
+  "شيكولاته اسمر",
+  "شيكولاته بيضاء",
+  "كرتونة زيت",
+  "جركن زيت",
+  "لباني",
+  "باستري",
+  "فانليا",
+  "فاكيوم 7سم",
+  "لون احمر",
+  "علب طلبية",
+  "كرتونة خميرة فورية",
+  "سمنة فرن",
+  "نشا",
+  "سكر",
+  "دقيق اهرام",
+  "وجبة بتي فور",
+  "جوز هند محمص",
+  "لوز محمص مجروش",
+  "جوز هند ابيض",
+  "وجبة بسكوت",
+  "رابطة حلويات",
+  "علب بتي فور نص",
+  "علب بسكوت نص",
+  "علب غريبة نص",
+  "علب كعك ساده نص",
+  "علب كعك ملبن نص",
+  "لعب جاتوه",
+  "دفتر ترنسفير الوان",
+  "ملبن",
+  "وجبه سيرب",
+  "بكر استرتش",
+  "ورق سلوفان موس",
+  "علب جاتوه دسته",
+  "دفتر ترانسفير ساده",
+  "كرتونة بكين بودر",
+  "ستان 2سم",
+  "جيلي شفاف",
+  "جيلي سخن"
+];
+
+
 const StreetOut = () => {
-  const [item, setItem] = useState("");
-  const [customItem, setCustomItem] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [note, setNote] = useState("");
-  const [records, setRecords] = useState([]);
   const navigate = useNavigate();
 
-  const itemOptions = [
-    "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", "رموش",
-    "لينزا", "جلاش", "نشابه", "صوابع", "بلح", "علب كريمة", "قشطوطة",
-    "فادج", "كيس كاكو1.750جرام", "كيس جرانه", "عزيزية", "بسبوسة تركي",
-    "شكارة سوداني مكسر", "ك بندق ني مكسر", "كيس سوداني روشيه", "كيس بندق محمص250جرام", "كيس أكلير",
-    "كرتونة بندق سليم", "ك سكر بودره", "ك جوز هند ناعم", "ك سميد", "جيلاتينة", "ك لبن بودره",
-    "كيس لبن بودره 150 جرام", "شيكولاته اسمر", "شيكولاته بيضاء", "كرتونة زيت", "جركن زيت", "لباني", "باستري",
-    "فانليا", "فاكيوم 7سم", "لون احمر", "علب طلبية", "كرتونة خميرة فورية", "سمنة فرن", "نشا", "سكر", "دقيق اهرام",
-    "وجبة بتي فور", "جوز هند محمص", "لوز محمص مجروش", "جوز هند ابيض", "وجبة بسكوت", "رابطة حلويات",
-    "علب بتي فور نص", "علب بسكوت نص", "علب غريبة نص", "علب كعك ساده نص", "علب كعك ملبن نص", "لعب جاتوه",
-    "دفتر ترنسفير الوان", "ملبن", "وجبه سيرب", "بكر استرتش", "ورق سلوفان موس", "علب جاتوه دسته",
-    "دفتر ترانسفير ساده", "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن", "أدخل صنف جديد"
-  ];
+  const [itemOptions, setItemOptions] = useState([...BASE_ITEMS, "أدخل صنف جديد"]);
+  const [item, setItem]           = useState("");
+  const [customItem, setCustomItem] = useState("");
+  const [quantity, setQuantity]   = useState("");
+  const [note, setNote]           = useState("");
+  const [records, setRecords]     = useState([]);
 
-  const streetOutRef = collection(db, "street-out");
+  /* Collections */
+  const outCol   = collection(db, "street-out");
+  const storeCol = collection(db, "street-store");
+  const itemsCol = collection(db, "items");
 
-  // قراءة بيانات الصادر من Firestore
+  /* تحميل الأصناف المُضافة سابقًا */
   useEffect(() => {
-    const unsubscribe = onSnapshot(streetOutRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setRecords(data);
+    const unsub = onSnapshot(itemsCol, (snap) => {
+      const extra = snap.docs.map((d) => d.id);
+      setItemOptions([...BASE_ITEMS, ...extra, "أدخل صنف جديد"]
+        .filter((v, i, arr) => arr.indexOf(v) === i).sort());
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  /* تحميل سجل الصادر */
+  useEffect(() => {
+    const unsub = onSnapshot(outCol, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setRecords(data);
+    });
+    return () => unsub();
+  }, []);
+
+  /* اختيار صنف */
+  const handleSelect = async (val) => {
+    if (val === "أدخل صنف جديد") return setItem(val);
+    setItem(val);
+  };
+
+  /* إضافة صنف جديد للقائمة */
+  const ensureNewItem = async (name) => {
+    await setDoc(doc(db, "items", name), { createdAt: serverTimestamp() });
+  };
+
+  /* تسجيل الصادر */
   const handleSubmit = async () => {
-    const finalItem = item === "أدخل صنف جديد" ? customItem.trim() : item.trim();
+    const rawName   = item === "أدخل صنف جديد" ? customItem : item;
+    const finalName = rawName.trim();
+    const key       = normalize(finalName);
 
-    if (!finalItem || !quantity) {
-      alert("من فضلك أدخل اسم الصنف والكمية");
-      return;
-    }
+    if (!finalName || !quantity) return alert("أدخل اسم الصنف والكمية");
 
-    // التأكد من توفر الصنف والكمية في المخزن
-    const stockRef = collection(db, "street-store");
-    const q = query(stockRef, where("name", "==", finalItem));
-    const snapshot = await getDocs(q);
+    /* لو صنف جديد خزّنه في items */
+    if (item === "أدخل صنف جديد") await ensureNewItem(finalName);
 
-    if (snapshot.empty) {
-      alert("❌ هذا الصنف غير موجود في المخزن.");
-      return;
-    }
+    /* التحقق من الكمية في المخزن */
+    const q = query(storeCol, where("nameKey", "==", key));
+    const snap = await getDocs(q);
 
-    const stockDoc = snapshot.docs[0];
-    const availableQty = stockDoc.data().quantity;
+    if (snap.empty) return alert("❌ الصنف غير موجود في المخزن");
 
-    if (Number(quantity) > availableQty) {
-      alert(`❌ الكمية غير كافية. المتاح: ${availableQty}`);
-      return;
-    }
+    const stock = snap.docs[0];
+    const available = stock.data().quantity;
 
-    // تسجيل الصادر فقط بدون خصم فعلي
-    await addDoc(streetOutRef, {
-      name: finalItem,
+    if (Number(quantity) > available)
+      return alert(`❌ الكمية غير كافية. المتاح: ${available}`);
+
+    /* تسجيل الصادر */
+    await addDoc(outCol, {
+      name: finalName,
+      nameKey: key,
       quantity: Number(quantity),
       note,
       date: new Date().toLocaleString("ar-EG", {
         timeZone: "Africa/Cairo",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
       }),
       timestamp: serverTimestamp(),
     });
 
-    alert("✅ تم تسجيل الصادر بنجاح.");
-    setItem("");
-    setCustomItem("");
-    setQuantity("");
-    setNote("");
+    alert("✅ تم تسجيل الصادر");
+    setItem(""); setCustomItem(""); setQuantity(""); setNote("");
   };
 
+  /* حذف سجل */
   const handleDelete = async (id) => {
-    const password = prompt("أدخل كلمة المرور للحذف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("❌ كلمة المرور غير صحيحة.");
-      return;
-    }
-
-    const confirm = window.confirm("هل أنت متأكد من الحذف؟");
-    if (!confirm) return;
-
+    const pwd = prompt("أدخل كلمة المرور للحذف:");
+    if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة");
+    if (!window.confirm("متأكد من الحذف؟")) return;
     await deleteDoc(doc(db, "street-out", id));
-    alert("✅ تم الحذف.");
   };
 
   return (
@@ -120,16 +184,15 @@ const StreetOut = () => {
       <h2 className="page-title">📤 الصادر من المخزن</h2>
 
       <div className="form-row">
-        <select value={item} onChange={(e) => setItem(e.target.value)}>
+        <select value={item} onChange={(e) => handleSelect(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {itemOptions.map((i, idx) => (
-            <option key={idx} value={i}>{i}</option>
+          {itemOptions.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
 
         {item === "أدخل صنف جديد" && (
           <input
-            type="text"
             placeholder="أدخل اسم الصنف"
             value={customItem}
             onChange={(e) => setCustomItem(e.target.value)}
@@ -148,9 +211,7 @@ const StreetOut = () => {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <button className="add-button" onClick={handleSubmit}>
-          ➕ تسجيل
-        </button>
+        <button className="add-button" onClick={handleSubmit}>➕ تسجيل</button>
       </div>
 
       <h3 className="table-title">📑 سجل الصادر:</h3>
@@ -158,23 +219,15 @@ const StreetOut = () => {
         <table className="styled-table">
           <thead>
             <tr>
-              <th>اسم الصنف</th>
-              <th>الكمية</th>
-              <th>البيان</th>
-              <th>التاريخ</th>
-              <th>حذف</th>
+              <th>الصنف</th><th>الكمية</th><th>البيان</th><th>التاريخ</th><th>حذف</th>
             </tr>
           </thead>
           <tbody>
             {records.map((rec) => (
               <tr key={rec.id}>
-                <td>{rec.name}</td>
-                <td>{rec.quantity}</td>
-                <td>{rec.note}</td>
+                <td>{rec.name}</td><td>{rec.quantity}</td><td>{rec.note}</td>
                 <td>{rec.date}</td>
-                <td>
-                  <button className="delete-btn" onClick={() => handleDelete(rec.id)}>حذف</button>
-                </td>
+                <td><button className="delete-btn" onClick={() => handleDelete(rec.id)}>حذف</button></td>
               </tr>
             ))}
           </tbody>
