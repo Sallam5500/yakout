@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db } from "../firebase"; // تأكد إنك عامل ملف firebase.js فيه config
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const StreetStore = () => {
@@ -11,9 +21,7 @@ const StreetStore = () => {
   const [items, setItems] = useState([]);
   const [editId, setEditId] = useState(null);
 
-  // قائمة الأصناف
- const itemOptions = [
-    "شكارة كريمه ", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", " رموش", 
+  const itemOptions = ["شكارة كريمه",  "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة", "حبيبه", " رموش", 
     "لينزا", "جلاش", "نشابه", "صوابع", "بلح", "علب كريمة", "قشطوطة", 
     "فادج ", "كيس كاكو1.750جرام ", " كيس جرانه", "عزيزية ", "بسبوسة تركي ",
     "شكارة سوداني مكسر ", "ك بندق ني مكسر  ", " كيس سوداني روشيه", "كيس بندق محمص250جرام ", " كيس أكلير ",
@@ -23,25 +31,24 @@ const StreetStore = () => {
     "لون احمر","علب طلبية","كرتونة خميرة فورية","سمنة فرن","نشا","سكر","دقيق اهرام","وجبة بتي فور","جوز هند محمص",
     "لوز محمص مجروش","جوز هند ابيض","وجبة بسكوت","رابطة حلويات","علب بتي فور نص","علب بسكوت نص","علب غريبة نص",
     "علب كعك ساده نص","علب كعك ملبن نص","لعب جاتوه","دفتر ترنسفير الوان","ملبن","وجبه سيرب","بكر استرتش",
-    "ورق سلوفان موس","علب جاتوه دسته","دفتر ترانسفير ساده","كرتونة بكين بودر ","ستان 2سم","جيلي شفاف","جيلي سخن",
-    "أدخل صنف جديد"
-  ];
+    "ورق سلوفان موس","علب جاتوه دسته","دفتر ترانسفير ساده","كرتونة بكين بودر ","ستان 2سم","جيلي شفاف","جيلي سخن", "أدخل صنف جديد"];
+
+  const streetStoreRef = collection(db, "street-store");
 
   useEffect(() => {
-    const storedItems = JSON.parse(localStorage.getItem("streetStoreItems")) || [];
-    setItems(storedItems);
+    const unsubscribe = onSnapshot(streetStoreRef, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setItems(data);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const saveToLocalStorage = (data) => {
-    localStorage.setItem("streetStoreItems", JSON.stringify(data));
-  };
-
-  const handleAddOrUpdate = () => {
+  const handleAddOrUpdate = async () => {
     const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
-
     if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
-
-    const today = new Date().toISOString().split("T")[0];
 
     if (editId) {
       const password = prompt("ادخل كلمة السر لتعديل الصنف:");
@@ -50,32 +57,23 @@ const StreetStore = () => {
         return;
       }
 
-      const updatedItems = items.map((item) =>
-        item.id === editId
-          ? {
-              ...item,
-              name: finalName,
-              quantity: parseFloat(quantity),
-              unit,
-              isEdited: true,
-            }
-          : item
-      );
-      setItems(updatedItems);
-      saveToLocalStorage(updatedItems);
-      setEditId(null);
-    } else {
-      const newItem = {
-        id: Date.now(),
+      const itemRef = doc(db, "street-store", editId);
+      await updateDoc(itemRef, {
         name: finalName,
         quantity: parseFloat(quantity),
         unit,
-        date: today,
+        isEdited: true,
+      });
+      setEditId(null);
+    } else {
+      await addDoc(streetStoreRef, {
+        name: finalName,
+        quantity: parseFloat(quantity),
+        unit,
+        date: new Date().toISOString().split("T")[0],
         isEdited: false,
-      };
-      const updatedItems = [...items, newItem];
-      setItems(updatedItems);
-      saveToLocalStorage(updatedItems);
+        timestamp: serverTimestamp(), // للفرز لاحقًا
+      });
     }
 
     setName("");
@@ -84,19 +82,16 @@ const StreetStore = () => {
     setUnit("عدد");
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const password = prompt("أدخل كلمة المرور للحذف:");
     if (password !== "1234" && password !== "2991034") {
       alert("كلمة المرور غير صحيحة.");
       return;
     }
-
     const confirmDelete = window.confirm("هل أنت متأكد من الحذف؟");
     if (!confirmDelete) return;
 
-    const updatedItems = items.filter((item) => item.id !== id);
-    setItems(updatedItems);
-    saveToLocalStorage(updatedItems);
+    await deleteDoc(doc(db, "street-store", id));
   };
 
   const handleEdit = (item) => {
@@ -109,10 +104,7 @@ const StreetStore = () => {
 
   return (
     <div className="page-container" dir="rtl">
-      <button className="back-button" onClick={() => navigate(-1)}>
-        ⬅ رجوع
-      </button>
-
+      <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🏪 المخزن اللي في الشارع</h2>
 
       <div className="form-row">
@@ -139,7 +131,7 @@ const StreetStore = () => {
           onChange={(e) => setQuantity(e.target.value)}
         />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-            <option>عدد</option>
+          <option>عدد</option>
           <option>كيلو</option>
           <option>شكارة</option>
           <option>جرام</option>
@@ -177,17 +169,10 @@ const StreetStore = () => {
               <td>{item.unit}</td>
               <td>{item.date}</td>
               <td>
-                <button className="edit-btn" onClick={() => handleEdit(item)}>
-                  تعديل
-                </button>
+                <button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button>
               </td>
               <td>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  حذف
-                </button>
+                <button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button>
               </td>
             </tr>
           ))}
