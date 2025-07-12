@@ -11,7 +11,9 @@ import {
   query,
   where,
   getDocs,
-  doc
+  doc,
+  orderBy,   // ⭐️
+  deleteDoc   // ← سنستخدمه بدل updateDoc للحذف الفعلي
 } from "firebase/firestore";
 
 const ExportPage = () => {
@@ -23,9 +25,10 @@ const ExportPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // جلب بيانات المخزون لحظيًا
+  // جلب بيانات المخزون لحظيًا (ترتيب تصاعدي بالتاريخ لسهولة القراءة فقط)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "storeItems"), (snapshot) => {
+    const q = query(collection(db, "storeItems"), orderBy("date", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -35,9 +38,10 @@ const ExportPage = () => {
     return () => unsubscribe();
   }, []);
 
-  // جلب بيانات الصادرات لحظيًا
+  // جلب بيانات الصادرات لحظيًا بترتيب تصاعدي للتاريخ
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "exportItems"), (snapshot) => {
+    const q = query(collection(db, "exportItems"), orderBy("date", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -101,13 +105,7 @@ const ExportPage = () => {
       alert("كلمة المرور خاطئة.");
       return;
     }
-
-    const updated = exportItems.filter((item) => item.id !== id);
-    setExportItems(updated); // تحديث الواجهة فقط (اختياري)
-
-    await updateDoc(doc(db, "exportItems", id), {
-      quantity: 0,
-    });
+    await deleteDoc(doc(db, "exportItems", id));   // حذف فعلي من Firestore
   };
 
   const filteredItems = exportItems.filter(
@@ -127,9 +125,11 @@ const ExportPage = () => {
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {[...new Set(stockItems.map((item) => item.name))].sort().map((itemName, index) => (
-            <option key={index} value={itemName}>{itemName}</option>
-          ))}
+          {[...new Set(stockItems.map((item) => item.name))]
+            .sort()
+            .map((itemName, index) => (
+              <option key={index} value={itemName}>{itemName}</option>
+            ))}
         </select>
 
         <input
@@ -141,6 +141,7 @@ const ExportPage = () => {
 
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
+          <option value="جردل">جردل</option>
           <option value="كيلو">كيلو</option>
           <option value="كيس">كيس</option>
           <option value="برنيكه">برنيكه</option>

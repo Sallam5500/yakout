@@ -10,41 +10,32 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
+  query,
+  orderBy          // ⭐️ مضاف للترتيب
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const Rooms = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const [name, setName]         = useState("");
   const [customName, setCustomName] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("عدد");
-  const [items, setItems] = useState([]);
-  const [editId, setEditId] = useState(null);
+  const [unit, setUnit]         = useState("عدد");
+  const [items, setItems]       = useState([]);
+  const [editId, setEditId]     = useState(null);
 
   const itemOptions = [
-    "بيض",
-    "مانجا فليت",
-    "فرولة فليت",
-    "كيوي فليت",
-    "مربي مشمش",
-    "لباني ",
-    "جبنه تشيز كيك ",
-    "رومانتك ابيض ",
-    "رومانتك اسمر ",
-    "بشر اسمر ",
-    "بشر ابيض ",
-    "لوتس ",
-    "نوتيلا ",
-    "جناش جديد ",
-    "جناش  ",
-    "أدخل صنف جديد"
+    "بيض","مانجا فليت","فرولة فليت","كيوي فليت","مربي مشمش","لباني ",
+    "جبنه تشيز كيك ","رومانتك ابيض ","رومانتك اسمر ","بشر اسمر ",
+    "بشر ابيض ","لوتس ","نوتيلا ","جناش جديد ","جناش  ","أدخل صنف جديد"
   ];
 
   const roomsRef = collection(db, "rooms-store");
 
+  /* تحميل البيانات مرتبة تصاعديًا بالتاريخ */
   useEffect(() => {
-    const unsubscribe = onSnapshot(roomsRef, (snapshot) => {
+    const q = query(roomsRef, orderBy("date", "asc")); // يوم 1 ثم 2 ثم 3...
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -64,9 +55,7 @@ const Rooms = () => {
         alert("كلمة المرور غير صحيحة");
         return;
       }
-
-      const itemRef = doc(db, "rooms-store", editId);
-      await updateDoc(itemRef, {
+      await updateDoc(doc(db, "rooms-store", editId), {
         name: finalName,
         quantity: parseFloat(quantity),
         unit,
@@ -78,16 +67,13 @@ const Rooms = () => {
         name: finalName,
         quantity: parseFloat(quantity),
         unit,
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().split("T")[0], // YYYY-MM-DD
         isEdited: false,
         timestamp: serverTimestamp(),
       });
     }
 
-    setName("");
-    setCustomName("");
-    setQuantity("");
-    setUnit("عدد");
+    setName(""); setCustomName(""); setQuantity(""); setUnit("عدد");
   };
 
   const handleDelete = async (id) => {
@@ -96,10 +82,7 @@ const Rooms = () => {
       alert("كلمة المرور غير صحيحة.");
       return;
     }
-
-    const confirmDelete = window.confirm("هل أنت متأكد من الحذف؟");
-    if (!confirmDelete) return;
-
+    if (!window.confirm("هل أنت متأكد من الحذف؟")) return;
     await deleteDoc(doc(db, "rooms-store", id));
   };
 
@@ -139,14 +122,12 @@ const Rooms = () => {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option>عدد</option>
-          <option>كيلو</option>
-          <option>صاج</option>
-          <option>جردل</option>
-          <option>كيس</option>
-          <option>برنيكة</option>
+          <option>عدد</option><option>كيلو</option><option>صاج</option>
+          <option>جردل</option><option>كيس</option><option>برنيكة</option>
         </select>
+
         <button className="add-button" onClick={handleAddOrUpdate}>
           {editId ? "تحديث" : "إضافة"}
         </button>
@@ -155,31 +136,19 @@ const Rooms = () => {
       <table className="styled-table">
         <thead>
           <tr>
-            <th>الاسم</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>التاريخ</th>
-            <th>تعديل</th>
-            <th>حذف</th>
+            <th>الاسم</th><th>الكمية</th><th>الوحدة</th>
+            <th>التاريخ</th><th>تعديل</th><th>حذف</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr
-              key={item.id}
-              className={item.isEdited ? "edited-row" : ""}
-              style={{ textAlign: "center" }}
-            >
+            <tr key={item.id} style={{ backgroundColor: item.isEdited ? "#ffcccc" : "transparent", textAlign:"center" }}>
               <td>{item.name}</td>
               <td>{item.quantity}</td>
               <td>{item.unit}</td>
               <td>{item.date}</td>
-              <td>
-                <button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button>
-              </td>
-              <td>
-                <button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button>
-              </td>
+              <td><button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button></td>
+              <td><button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button></td>
             </tr>
           ))}
         </tbody>

@@ -2,79 +2,63 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  updateDoc,
-  doc,
+  collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc,
+  query, orderBy                    // ⭐️ أضفنا query و orderBy
 } from "firebase/firestore";
 import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Cleaning = () => {
-  const navigate = useNavigate();
-  const [tasks, setTasks] = useState([]);
-  const [section, setSection] = useState("");
-  const [details, setDetails] = useState("");
-  const [duration, setDuration] = useState("");
-  const [note, setNote] = useState("");
+  const navigate                    = useNavigate();
+  const [tasks, setTasks]           = useState([]);
+  const [section, setSection]       = useState("");
+  const [details, setDetails]       = useState("");
+  const [duration, setDuration]     = useState("");
+  const [note, setNote]             = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
   const collectionRef = collection(db, "cleaningTasks");
 
-  // قراءة البيانات لحظياً من Firestore
+  /* ---------- تحميل البيانات بترتيب تصاعدي (يوم 1 ثم 2 ثم 3…) ---------- */
   useEffect(() => {
-    const unsub = onSnapshot(collectionRef, (snap) => {
-      const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setTasks(data);
+    const q = query(collectionRef, orderBy("date", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      setTasks(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
 
+  /* ---------- إضافة مهمة تنظيف ---------- */
   const handleAdd = async () => {
-    if (!section || !details || !duration) {
-      alert("يرجى ملء الحقول الأساسية.");
-      return;
-    }
+    if (!section || !details || !duration) return alert("يرجى ملء الحقول الأساسية.");
 
-    const date = new Date().toLocaleDateString("fr-CA");
+    const date = new Date().toLocaleDateString("fr-CA"); // YYYY‑MM‑DD
     await addDoc(collectionRef, {
-      date,
-      section,
-      details,
-      duration,
-      note,
-      updated: false,
+      date, section, details, duration, note, updated: false,
     });
 
-    setSection("");
-    setDetails("");
-    setDuration("");
-    setNote("");
+    setSection(""); setDetails(""); setDuration(""); setNote("");
   };
 
+  /* ---------- حذف ---------- */
   const handleDelete = async (id) => {
-    const password = prompt("ادخل كلمة المرور للحذف:");
-    if (password !== "1234") return alert("كلمة المرور خاطئة.");
+    const pwd = prompt("ادخل كلمة المرور للحذف:");
+    if (pwd !== "1234") return alert("كلمة المرور خاطئة.");
     await deleteDoc(doc(db, "cleaningTasks", id));
   };
 
-  const handleEdit = async (task) => {
-    const password = prompt("ادخل كلمة المرور للتعديل:");
-    if (password !== "1234") return alert("كلمة المرور خاطئة.");
+  /* ---------- تعديل ---------- */
+  const handleEdit = async (t) => {
+    const pwd = prompt("ادخل كلمة المرور للتعديل:");
+    if (pwd !== "1234") return alert("كلمة المرور خاطئة.");
 
-    const newSection = prompt("القسم الجديد:", task.section);
-    const newDetails = prompt("تفاصيل النظافة الجديدة:", task.details);
-    const newDuration = prompt("المدة / الكمية الجديدة:", task.duration);
-    const newNote = prompt("الملاحظات الجديدة:", task.note);
+    const newSection  = prompt("القسم الجديد:", t.section);
+    const newDetails  = prompt("تفاصيل النظافة الجديدة:", t.details);
+    const newDuration = prompt("المدة / الكمية الجديدة:", t.duration);
+    const newNote     = prompt("الملاحظات الجديدة:", t.note);
+    if (!newSection || !newDetails || !newDuration) return;
 
-    if (!newSection || !newDetails || !newDuration) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
-
-    await updateDoc(doc(db, "cleaningTasks", task.id), {
+    await updateDoc(doc(db, "cleaningTasks", t.id), {
       section: newSection,
       details: newDetails,
       duration: newDuration,
@@ -83,27 +67,31 @@ const Cleaning = () => {
     });
   };
 
+  /* ---------- فلترة بحث ---------- */
   const filtered = tasks.filter(
-    (item) =>
-      item.details.includes(searchTerm) ||
-      item.section.includes(searchTerm) ||
-      item.date.includes(searchTerm)
+    (it) =>
+      it.details.includes(searchTerm) ||
+      it.section.includes(searchTerm) ||
+      it.date.includes(searchTerm)
   );
 
+  /* ---------------- JSX ---------------- */
   return (
     <div className="page-container" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🧽 النظافة</h2>
       <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
 
+      {/* نموذج الإدخال */}
       <div className="form-row">
-        <input placeholder="القسم" value={section} onChange={(e) => setSection(e.target.value)} />
-        <input placeholder="تفاصيل النظافة" value={details} onChange={(e) => setDetails(e.target.value)} />
-        <input placeholder="المدة / الكمية" value={duration} onChange={(e) => setDuration(e.target.value)} />
-        <input placeholder="ملاحظات" value={note} onChange={(e) => setNote(e.target.value)} />
+        <input placeholder="القسم"            value={section}  onChange={(e) => setSection(e.target.value)} />
+        <input placeholder="تفاصيل النظافة"   value={details}  onChange={(e) => setDetails(e.target.value)} />
+        <input placeholder="المدة / الكمية"   value={duration} onChange={(e) => setDuration(e.target.value)} />
+        <input placeholder="ملاحظات"          value={note}      onChange={(e) => setNote(e.target.value)} />
         <button onClick={handleAdd}>➕ إضافة</button>
       </div>
 
+      {/* البحث */}
       <input
         className="search"
         placeholder="🔍 بحث بالاسم أو التاريخ أو القسم"
@@ -111,31 +99,22 @@ const Cleaning = () => {
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
-          <tr>
-            <th>التاريخ</th>
-            <th>القسم</th>
-            <th>التفاصيل</th>
-            <th>المدة / الكمية</th>
-            <th>ملاحظات</th>
-            <th>إجراء</th>
-          </tr>
+          <tr><th>التاريخ</th><th>القسم</th><th>التفاصيل</th><th>المدة / الكمية</th><th>ملاحظات</th><th>إجراء</th></tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (
             <tr><td colSpan="6">لا توجد بيانات.</td></tr>
           ) : (
-            filtered.map((item) => (
-              <tr key={item.id} className={item.updated ? "edited-row" : ""}>
-                <td>{item.date}</td>
-                <td>{item.section}</td>
-                <td>{item.details}</td>
-                <td>{item.duration}</td>
-                <td>{item.note}</td>
+            filtered.map((it) => (
+              <tr key={it.id} className={it.updated ? "edited-row" : ""}>
+                <td>{it.date}</td><td>{it.section}</td><td>{it.details}</td>
+                <td>{it.duration}</td><td>{it.note}</td>
                 <td>
-                  <button onClick={() => handleEdit(item)}>✏️</button>{" "}
-                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
+                  <button onClick={() => handleEdit(it)}>✏️</button>{" "}
+                  <button onClick={() => handleDelete(it.id)}>🗑️</button>
                 </td>
               </tr>
             ))

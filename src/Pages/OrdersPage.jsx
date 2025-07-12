@@ -9,6 +9,8 @@ import {
   updateDoc,
   doc,
   setDoc,
+  query,
+  orderBy,                  // ⭐️ مضاف
 } from "firebase/firestore";
 import { db } from "../firebase";
 import "./InventoryPage.css";   // نفس التنسيق
@@ -20,43 +22,59 @@ const PASS = ["1234", "2991034"];
 
 /* قائمة أصناف أساسية */
 const BASE_PRODUCTS = [
-  "كنافه كريمة","لينزا","مدلعة","صاج عزيزيه","بسبوسة ساده","بسبوسة بندق",/* … */ "تورتة مانجا"
+  "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
+    "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
+    "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
+    "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده", "صوابع زينب",
+    "عش نوتيلا", "عش فاكهة", "صاج رواني", "جلاش تركي", "كنافة فادج", "كنافة بستاشيو",
+    "بلح كريمة", "كورنيه", "دسباسيتو", "بروفترول", "ميني مربعه", "تورته ميني",
+    "تشيز كيك", "موس مشكلة", "فادج", "فلوتس", "مربعه فور سيزون", "ط26 فور سيزون",
+    "ط24 فور سيزون", "تفاحة نص ونص", "تفاحة R/F", "مربعه نص ونص", "مربعه R/F",
+    "ط 26 نص ونص", "ط 26 رومانتك", "ط 26 فاكيوم", "ط 24 بلاك", "ط 20 نص ونص", "ط 20 بلاك",
+    "قلب صفير", "فيستفال", "قشطوطة", "جاتوه سواريه", "20*30", "موس ابيض", "موس كرامل",
+    "موس توت", "موس لوتس", "موس فراولة", "موس شوكولاتة", "موس مانجا", "موس كيوي",
+    "أكواب فاكهة", "أكواب شوكولاتة", "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين",
+    "جاتوه كبير", "جاتوه صغير", "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك",
+    "طبقات 22", "30*30", "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد",
+    "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا", "أدخل صنف جديد"
 ];
 
 const OrdersPage = () => {
-  const { branchId } = useParams();      // ex: barka
-  const navigate = useNavigate();
-  const branchName = BRANCH_NAMES[branchId] || "فرع غير معروف";
+  const { branchId }   = useParams();        // ex: barka
+  const navigate       = useNavigate();
+  const branchName     = BRANCH_NAMES[branchId] || "فرع غير معروف";
 
   /* Collections */
   const ordersCol = collection(db, `${branchId}_orders`);
-  const itemsCol  = collection(db, "items");         // أصناف مشتركة لكل الفروع
+  const itemsCol  = collection(db, "items");   // أصناف مشتركة
 
   /* state */
   const [productList, setProductList] = useState(BASE_PRODUCTS);
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders]           = useState([]);
   const [formData, setFormData] = useState({
     product: "", quantity: "", unit: "عدد", note: "",
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId]       = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   /* تحميل الأصناف من Firestore */
   useEffect(() => {
     const unsub = onSnapshot(itemsCol, (snap) => {
       const extra = snap.docs.map((d) => d.id);
-      setProductList([...BASE_PRODUCTS, ...extra].filter(
-        (v, i, arr) => arr.indexOf(v) === i   // unique
-      ).sort());
+      setProductList(
+        [...BASE_PRODUCTS, ...extra]
+          .filter((v, i, arr) => arr.indexOf(v) === i)   // unique
+          .sort()
+      );
     });
     return () => unsub();
   }, []);
 
-  /* تحميل الأوردرات لحظيًا */
+  /* تحميل الأوردرات لحظيًا بترتيب تصاعدي */
   useEffect(() => {
-    const unsub = onSnapshot(ordersCol, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setOrders(data);
+    const q = query(ordersCol, orderBy("date", "asc"));   // 🌟 يوم 1 ثم 2 ثم 3…
+    const unsub = onSnapshot(q, (snap) => {
+      setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
@@ -69,7 +87,7 @@ const OrdersPage = () => {
     const rec = {
       ...formData,
       quantity: parseInt(formData.quantity),
-      date: new Date().toLocaleDateString("fr-CA"),
+      date: new Date().toLocaleDateString("fr-CA"), // YYYY‑MM‑DD
       updated: Boolean(editId),
     };
 
@@ -85,8 +103,10 @@ const OrdersPage = () => {
   /* بدء التعديل */
   const handleEdit = (item) => {
     setFormData({
-      product: item.product, quantity: item.quantity,
-      unit: item.unit, note: item.note || "",
+      product: item.product,
+      quantity: item.quantity,
+      unit: item.unit,
+      note: item.note || "",
     });
     setEditId(item.id);
   };
@@ -103,7 +123,6 @@ const OrdersPage = () => {
     if (val === "__new") {
       const newProd = prompt("اكتب اسم الصنف الجديد:");
       if (newProd) {
-        // حفظ الصنف الجديد في Firestore (document ID = الاسم)
         await setDoc(doc(db, "items", newProd), { createdAt: Date.now() });
         setFormData({ ...formData, product: newProd });
       }
@@ -114,9 +133,12 @@ const OrdersPage = () => {
 
   /* بحث */
   const filtered = orders.filter(
-    (o) => o.product.includes(searchTerm) || o.date.includes(searchTerm.trim())
+    (o) =>
+      o.product.includes(searchTerm) ||
+      o.date.includes(searchTerm.trim())
   );
 
+  /* ---------------- JSX ---------------- */
   return (
     <div className="inventory-container" dir="rtl">
       <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
@@ -141,13 +163,17 @@ const OrdersPage = () => {
           type="number"
           placeholder="الكمية"
           value={formData.quantity}
-          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, quantity: e.target.value })
+          }
           required
         />
 
         <select
           value={formData.unit}
-          onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, unit: e.target.value })
+          }
         >
           <option>عدد</option><option>سيرفيز</option>
           <option>برنيكة</option><option>كيلو</option><option>صاج</option>
@@ -178,8 +204,10 @@ const OrdersPage = () => {
       {/* جدول */}
       <table className="inventory-table">
         <thead>
-          <tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th>
-              <th>الوحدة</th><th>البيان</th><th>إجراءات</th></tr>
+          <tr>
+            <th>التاريخ</th><th>الصنف</th><th>الكمية</th>
+            <th>الوحدة</th><th>البيان</th><th>إجراءات</th>
+          </tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (

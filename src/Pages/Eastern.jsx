@@ -2,166 +2,119 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  updateDoc,
-  doc
+  collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc,
+  query, orderBy                              // ⭐️ أضفنا query و orderBy
 } from "firebase/firestore";
 import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const Eastern = () => {
-  const [items, setItems] = useState([]);
-  const [name, setName] = useState("");
+  const [items, setItems]       = useState([]);
+  const [name, setName]         = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("عدد");
+  const [unit, setUnit]         = useState("عدد");
   const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
+  const navigate                = useNavigate();
 
   const collectionRef = collection(db, "easternOrders");
 
+  /* ---------- تحميل البيانات بترتيب تصاعدي (يوم 1 ثم 2 ثم 3...) ---------- */
   useEffect(() => {
-    const unsubscribe = onSnapshot(collectionRef, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setItems(data);
+    const q = query(collectionRef, orderBy("date", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  /* ---------- إضافة صنف ---------- */
   const handleAdd = async () => {
-    if (!name || !quantity) {
-      alert("يرجى إدخال اسم الصنف والكمية.");
-      return;
-    }
-
-    const date = new Date().toLocaleDateString("fr-CA");
+    if (!name || !quantity) return alert("يرجى إدخال اسم الصنف والكمية.");
+    const date = new Date().toLocaleDateString("fr-CA");   // YYYY‑MM‑DD
     await addDoc(collectionRef, {
       name,
-      quantity: parseInt(quantity),
+      quantity: Number(quantity),
       unit,
       date,
       updated: false,
     });
-
-    setName("");
-    setQuantity("");
-    setUnit("عدد");
+    setName(""); setQuantity(""); setUnit("عدد");
   };
 
+  /* ---------- حذف ---------- */
   const handleDelete = async (id) => {
-    const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password === "1234" || password === "2991034") {
-      await deleteDoc(doc(db, "easternOrders", id));
-    } else {
-      alert("كلمة المرور خاطئة.");
-    }
+    const pwd = prompt("ادخل كلمة المرور لحذف الصنف:");
+    if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور خاطئة.");
+    await deleteDoc(doc(db, "easternOrders", id));
   };
 
-  const handleEdit = async (item) => {
-    const password = prompt("ادخل كلمة المرور لتعديل الصنف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
+  /* ---------- تعديل ---------- */
+  const handleEdit = async (it) => {
+    const pwd = prompt("ادخل كلمة المرور لتعديل الصنف:");
+    if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور خاطئة.");
 
-    const newName = prompt("اسم الصنف الجديد:", item.name);
-    const newQuantity = prompt("الكمية الجديدة:", item.quantity);
-    const newUnit = prompt("الوحدة الجديدة:", item.unit);
+    const newName = prompt("اسم الصنف الجديد:", it.name);
+    const newQty  = prompt("الكمية الجديدة:", it.quantity);
+    const newUnit = prompt("الوحدة الجديدة:", it.unit);
+    if (!newName || !newQty || !newUnit) return;
 
-    if (!newName || !newQuantity || !newUnit) {
-      alert("لم يتم تعديل البيانات.");
-      return;
-    }
-
-    await updateDoc(doc(db, "easternOrders", item.id), {
+    await updateDoc(doc(db, "easternOrders", it.id), {
       name: newName,
-      quantity: parseInt(newQuantity),
+      quantity: Number(newQty),
       unit: newUnit,
       updated: true,
     });
   };
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.name.includes(searchTerm.trim()) ||
-      item.date.includes(searchTerm.trim())
+  /* ---------- فلترة ---------- */
+  const filtered = items.filter(
+    (it) =>
+      it.name.includes(searchTerm.trim()) ||
+      it.date.includes(searchTerm.trim())
   );
 
+  /* ---------------- JSX ---------------- */
   return (
     <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🍬 أوردرات الحلويات الشرقية</h2>
-
       <button onClick={() => window.print()} className="print-btn">🖨️ طباعة</button>
 
+      {/* نموذج الإدخال */}
       <div className="form-row">
-        <input
-          type="text"
-          placeholder="اسم الصنف"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
+        <input type="text"  placeholder="اسم الصنف" value={name}     onChange={(e) => setName(e.target.value)} />
+        <input type="number"placeholder="الكمية"    value={quantity} onChange={(e) => setQuantity(e.target.value)} />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option value="عدد">عدد</option>
-          <option value="صاج">صاج</option>
-          <option value="صينية">صينية</option>
-          <option value="كيلو">كيلو</option>
+          <option value="عدد">عدد</option><option value="صاج">صاج</option>
+          <option value="صينية">صينية</option><option value="كيلو">كيلو</option>
           <option value="سيرفيز">سيرفيز</option>
         </select>
         <button className="add-button" onClick={handleAdd}>تسجيل الصنف</button>
       </div>
 
+      {/* البحث */}
       <input
-        type="text"
-        className="search"
-        placeholder="بحث بالاسم أو التاريخ"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={{
-          padding: "10px",
-          borderRadius: "6px",
-          border: "none",
-          marginBottom: "15px",
-          fontSize: "16px",
-          width: "300px",
-          textAlign: "center"
-        }}
+        className="search" type="text" placeholder="بحث بالاسم أو التاريخ"
+        value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+        style={{ padding:"10px", borderRadius:"6px", border:"none",
+                 marginBottom:"15px", fontSize:"16px", width:"300px", textAlign:"center" }}
       />
 
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
-          <tr>
-            <th>التاريخ</th>
-            <th>الصنف</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>إجراءات</th>
-          </tr>
+          <tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th><th>إجراءات</th></tr>
         </thead>
         <tbody>
-          {filteredItems.length === 0 ? (
+          {filtered.length === 0 ? (
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
-            filteredItems.map((item) => (
-              <tr key={item.id} className={item.updated ? "edited-row" : ""}>
-                <td>{item.date}</td>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.unit}</td>
+            filtered.map((it) => (
+              <tr key={it.id} className={it.updated ? "edited-row" : ""}>
+                <td>{it.date}</td><td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
                 <td>
-                  <button className="edit-btn" onClick={() => handleEdit(item)}>✏️</button>{" "}
-                  <button className="delete-btn" onClick={() => handleDelete(item.id)}>🗑️</button>
+                  <button className="edit-btn"   onClick={() => handleEdit(it)}>✏️</button>{" "}
+                  <button className="delete-btn" onClick={() => handleDelete(it.id)}>🗑️</button>
                 </td>
               </tr>
             ))

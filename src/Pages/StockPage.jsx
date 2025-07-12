@@ -22,9 +22,9 @@ const StockPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // قراءة البيانات من Firestore لحظيًا
+  // قراءة البيانات من Firestore لحظيًا بترتيب تصاعدي للتاريخ
   useEffect(() => {
-    const q = query(collection(db, "storeItems"), orderBy("date", "desc"));
+    const q = query(collection(db, "storeItems"), orderBy("date", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -142,6 +142,8 @@ const StockPage = () => {
 
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option value="عدد">عدد</option>
+          <option value="شكاره">شكاره</option>
+          <option value="جردل">جردل</option>
           <option value="كيلو">كيلو</option>
           <option value="كيس">كيس</option>
           <option value="برنيكه">برنيكه</option>
@@ -179,9 +181,7 @@ const StockPage = () => {
             <tr><td colSpan="5">لا توجد بيانات.</td></tr>
           ) : (
             filteredItems.map((item) => (
-              <tr
-                key={item.id}
-              >
+              <tr key={item.id}>
                 <td>{item.date}</td>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>

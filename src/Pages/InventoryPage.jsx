@@ -9,6 +9,8 @@ import {
   updateDoc,
   doc,
   setDoc,
+  query,
+  orderBy,               // ⭐️ مضاف
 } from "firebase/firestore";
 import { db } from "../firebase";
 import "../GlobalStyles.css";
@@ -23,14 +25,27 @@ const PASS = ["1234", "2991034"];
 
 /* القائمة الأساسية */
 const BASE_PRODUCTS = [
-  "كنافه كريمة","لينزا","مدلعة","صاج عزيزيه","بسبوسة ساده","بسبوسة بندق",
-  /* … بقية الأصناف … */ "تورتة مانجا"
+   "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
+    "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
+    "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
+    "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده", "صوابع زينب",
+    "عش نوتيلا", "عش فاكهة", "صاج رواني", "جلاش تركي", "كنافة فادج", "كنافة بستاشيو",
+    "بلح كريمة", "كورنيه", "دسباسيتو", "بروفترول", "ميني مربعه", "تورته ميني",
+    "تشيز كيك", "موس مشكلة", "فادج", "فلوتس", "مربعه فور سيزون", "ط26 فور سيزون",
+    "ط24 فور سيزون", "تفاحة نص ونص", "تفاحة R/F", "مربعه نص ونص", "مربعه R/F",
+    "ط 26 نص ونص", "ط 26 رومانتك", "ط 26 فاكيوم", "ط 24 بلاك", "ط 20 نص ونص", "ط 20 بلاك",
+    "قلب صفير", "فيستفال", "قشطوطة", "جاتوه سواريه", "20*30", "موس ابيض", "موس كرامل",
+    "موس توت", "موس لوتس", "موس فراولة", "موس شوكولاتة", "موس مانجا", "موس كيوي",
+    "أكواب فاكهة", "أكواب شوكولاتة", "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين",
+    "جاتوه كبير", "جاتوه صغير", "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك",
+    "طبقات 22", "30*30", "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد",
+    "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا", "أدخل صنف جديد"
 ];
 
 const InventoryPage = () => {
-  const { branchId } = useParams();              // barka أو qwesna
-  const navigate = useNavigate();
-  const branchName = BRANCH_NAMES[branchId] || "فرع غير معروف";
+  const { branchId } = useParams();          // barka أو qwesna
+  const navigate     = useNavigate();
+  const branchName   = BRANCH_NAMES[branchId] || "فرع غير معروف";
 
   /* Collections */
   const inventoryCol = collection(db, `${branchId}_inventory`);
@@ -38,29 +53,31 @@ const InventoryPage = () => {
 
   /* state */
   const [productList, setProductList] = useState(BASE_PRODUCTS);
-  const [inventory, setInventory]     = useState([]);
-  const [formData, setFormData] = useState({
+  const [inventory,   setInventory]   = useState([]);
+  const [formData, setFormData]       = useState({
     product: "", quantity: "", unit: "عدد", note: "",
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId]       = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   /* تحميل الأصناف المشتركة من Firestore */
   useEffect(() => {
     const unsub = onSnapshot(itemsCol, (snap) => {
       const extra = snap.docs.map((d) => d.id);
-      setProductList([...BASE_PRODUCTS, ...extra].filter(
-        (v, i, arr) => arr.indexOf(v) === i   // unique
-      ).sort());
+      setProductList(
+        [...BASE_PRODUCTS, ...extra]
+          .filter((v, i, arr) => arr.indexOf(v) === i)   // unique
+          .sort()
+      );
     });
     return () => unsub();
   }, []);
 
-  /* تحميل الجرد لحظيًا */
+  /* تحميل الجرد لحظيًا (يوم 1 ثم 2 ثم 3…) */
   useEffect(() => {
-    const unsub = onSnapshot(inventoryCol, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setInventory(data);
+    const q = query(inventoryCol, orderBy("date", "asc"));   // ⭐️ الترتيب التصاعدي
+    const unsub = onSnapshot(q, (snap) => {
+      setInventory(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
@@ -86,7 +103,7 @@ const InventoryPage = () => {
     const rec = {
       ...formData,
       quantity: parseInt(formData.quantity),
-      date: new Date().toLocaleDateString("fr-CA"),
+      date: new Date().toLocaleDateString("fr-CA"), // YYYY‑MM‑DD
       updated: Boolean(editId),
     };
 
@@ -102,8 +119,10 @@ const InventoryPage = () => {
   /* التعديل */
   const handleEdit = (item) => {
     setFormData({
-      product: item.product, quantity: item.quantity,
-      unit: item.unit || "عدد", note: item.note || "",
+      product: item.product,
+      quantity: item.quantity,
+      unit: item.unit || "عدد",
+      note: item.note || "",
     });
     setEditId(item.id);
   };
@@ -117,15 +136,18 @@ const InventoryPage = () => {
 
   /* فلترة */
   const filtered = inventory.filter(
-    (it) => it.product.includes(searchTerm) || it.date.includes(searchTerm.trim())
+    (it) =>
+      it.product.includes(searchTerm) ||
+      it.date.includes(searchTerm.trim())
   );
 
+  /* ---------------- JSX ---------------- */
   return (
     <div className="factory-page" dir="rtl">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📋 جرد المحل - فرع {branchName}</h2>
 
-      {/* نموذج */}
+      {/* نموذج الإدخال */}
       <form onSubmit={handleSubmit} className="form-section">
         <div className="form-row">
           <select
@@ -145,16 +167,23 @@ const InventoryPage = () => {
             type="number"
             placeholder="الكمية"
             value={formData.quantity}
-            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, quantity: e.target.value })
+            }
             required
           />
 
           <select
             value={formData.unit}
-            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, unit: e.target.value })
+            }
           >
-            <option>عدد</option><option>سيرفيز</option>
-            <option>برنيكة</option><option>كيلو</option><option>صاج</option>
+            <option>عدد</option>
+            <option>سيرفيز</option>
+            <option>برنيكة</option>
+            <option>كيلو</option>
+            <option>صاج</option>
           </select>
 
           <input
@@ -167,7 +196,7 @@ const InventoryPage = () => {
         <button type="submit">{editId ? "تحديث" : "تسجيل"}</button>
       </form>
 
-      {/* بحث */}
+      {/* البحث */}
       <input
         className="search"
         placeholder="🔍 ابحث باسم الصنف أو التاريخ"
@@ -175,22 +204,36 @@ const InventoryPage = () => {
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
-      {/* جدول */}
+      {/* الجدول */}
       <table className="styled-table">
         <thead>
           <tr>
-            <th>التاريخ</th><th>الصنف</th><th>الكمية</th>
-            <th>الوحدة</th><th>البيان</th><th>إجراءات</th>
+            <th>التاريخ</th>
+            <th>الصنف</th>
+            <th>الكمية</th>
+            <th>الوحدة</th>
+            <th>البيان</th>
+            <th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (
-            <tr><td colSpan="6">لا توجد بيانات.</td></tr>
+            <tr>
+              <td colSpan="6">لا توجد بيانات.</td>
+            </tr>
           ) : (
             filtered.map((it) => (
-              <tr key={it.id} style={{ backgroundColor: it.updated ? "#d0ebff" : "transparent" }}>
-                <td>{it.date}</td><td>{it.product}</td><td>{it.quantity}</td>
-                <td>{it.unit}</td><td>{it.note || "-"}</td>
+              <tr
+                key={it.id}
+                style={{
+                  backgroundColor: it.updated ? "#d0ebff" : "transparent",
+                }}
+              >
+                <td>{it.date}</td>
+                <td>{it.product}</td>
+                <td>{it.quantity}</td>
+                <td>{it.unit}</td>
+                <td>{it.note || "-"}</td>
                 <td>
                   <button onClick={() => handleEdit(it)}>✏️</button>{" "}
                   <button onClick={() => handleDelete(it.id)}>🗑️</button>

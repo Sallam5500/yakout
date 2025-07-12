@@ -1,14 +1,9 @@
 // src/pages/TruckLoadingPage.jsx
 import React, { useState, useEffect } from "react";
 import {
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
+  collection, addDoc, deleteDoc, doc, updateDoc,
+  onSnapshot, serverTimestamp, setDoc,
+  query, orderBy                             // ⭐️ أضفنا query و orderBy
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate, useParams } from "react-router-dom";
@@ -26,36 +21,33 @@ const UNITS = ["عدد", "برنيكه", "سيرفيز", "صاج", "قطعه"];
 
 /* ---------- الأصناف الأساسية ---------- */
 const ITEM_OPTIONS = [
-  "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
-  "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
-  "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات", "بسيمة",
-  "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده", "صوابع زينب",
-  "عش نوتيلا", "عش فاكهة", "صاج رواني", "جلاش تركي", "كنافة فادج", "كنافة بستاشيو",
-  "بلح كريمة", "كورنيه", "دسباسيتو", "بروفترول", "ميني مربعه", "تورته ميني",
-  "تشيز كيك", "موس مشكلة", "فادج", "فلوتس", "مربعه فور سيزون", "ط26 فور سيزون",
-  "ط24 فور سيزون", "تفاحة نص ونص", "تفاحة R/F", "مربعه نص ونص", "مربعه R/F",
-  "ط 26 نص ونص", "ط 26 رومانتك", "ط 26 فاكيوم", "ط 24 بلاك", "ط 20 نص ونص", "ط 20 بلاك",
-  "قلب صفير", "فيستفال", "قشطوطة", "جاتوه سواريه", "20*30", "موس ابيض", "موس كرامل",
-  "موس توت", "موس لوتس", "موس فراولة", "موس شوكولاتة", "موس مانجا", "موس كيوي",
-  "أكواب فاكهة", "أكواب شوكولاتة", "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين",
-  "جاتوه كبير", "جاتوه صغير", "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك",
-  "طبقات 22", "30*30", "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد",
-  "فلوش جديد", "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا"
+  "كنافه كريمة","لينزا","مدلعة","صاج عزيزيه","بسبوسة ساده","بسبوسة بندق",
+  "جلاش كريمة","بسبوسة قشطة","بسبوسة لوتس","كنافة قشطة","جلاش","بقلاوة",
+  "جلاش حجاب","سوارية ساده","سوارية مكسرات","بصمة سادة","بصمة مكسرات","بسيمة",
+  "حبيبة","رموش","اسكندراني","كنافة عش","بصمة كاجو","بلح ساده","صوابع زينب",
+  "عش نوتيلا","عش فاكهة","صاج رواني","جلاش تركي","كنافة فادج","كنافة بستاشيو",
+  "بلح كريمة","كورنيه","دسباسيتو","بروفترول","ميني مربعه","تورته ميني",
+  "تشيز كيك","موس مشكلة","فادج","فلوتس","مربعه فور سيزون","ط26 فور سيزون",
+  "ط24 فور سيزون","تفاحة نص ونص","تفاحة R/F","مربعه نص ونص","مربعه R/F",
+  "ط 26 نص ونص","ط 26 رومانتك","ط 26 فاكيوم","ط 24 بلاك","ط 20 نص ونص","ط 20 بلاك",
+  "قلب صفير","فيستفال","قشطوطة","جاتوه سواريه","20*30","موس ابيض","موس كرامل",
+  "موس توت","موس لوتس","موس فراولة","موس شوكولاتة","موس مانجا","موس كيوي",
+  "أكواب فاكهة","أكواب شوكولاتة","مهلبية","كاس موس","كاسات فاكهة","كوبيات جيلاتين",
+  "جاتوه كبير","جاتوه صغير","التشكلات","كاب توت","موس قديم","بولا","فاني كيك",
+  "طبقات 22","30*30","35*35","مانجا مستطيل","موس فرنسوي","كارت كيك","فاكهة جديد",
+  "فلوش جديد","بيستاشيو مستطيل","كب بيستاشيو","تورتة مانجا"
 ];
 
 const TruckLoadingPage = () => {
   /* ---------- تحديد الفرع ---------- */
-  const { branch } = useParams();                       // barka / qwesna / receive
-  const collectionName = `truck-loading-${branch}`;     // مثال: truck-loading-barka
+  const { branch } = useParams();                         // barka / qwesna / receive
+  const collectionName = `truck-loading-${branch}`;       // مثال: truck-loading-barka
   const pageTitle = BRANCH_TITLES[branch] || "تحميل العربيات";
 
   /* ---------- state ---------- */
   const [records, setRecords] = useState([]);
-
-  // قائمة الأصناف (تبدأ بالثابت ثم تُدمَج مع Firestore)
   const [itemsList, setItemsList] = useState(ITEM_OPTIONS);
 
-  // اختيار الصنف
   const [item, setItem] = useState("");
   const [isAddingNewItem, setIsAddingNewItem] = useState(false);
   const [newItemName, setNewItemName] = useState("");
@@ -63,7 +55,6 @@ const TruckLoadingPage = () => {
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(UNITS[0]);
   const [note, setNote] = useState("");
-
   const [search, setSearch] = useState("");
 
   const navigate = useNavigate();
@@ -72,18 +63,16 @@ const TruckLoadingPage = () => {
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "items"), (snap) => {
       const firebaseItems = snap.docs.map((d) => d.id);
-      setItemsList((prev) =>
-        Array.from(new Set([...prev, ...firebaseItems])).sort()
-      );
+      setItemsList(Array.from(new Set([...ITEM_OPTIONS, ...firebaseItems])).sort());
     });
     return () => unsub();
   }, []);
 
-  /* ---------- استماع لحظي لحركات التحميل ---------- */
+  /* ---------- استماع لحظي لِحركات التحميل بترتيب تصاعدي ---------- */
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, collectionName), (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setRecords(data.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds));
+    const q = query(collection(db, collectionName), orderBy("createdAt", "asc")); // يوم 1 ثم 2 ثم 3...
+    const unsub = onSnapshot(q, (snap) => {
+      setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, [collectionName]);
@@ -93,7 +82,7 @@ const TruckLoadingPage = () => {
     const name = newItemName.trim();
     if (!name) return;
     await setDoc(doc(db, "items", name), { createdAt: serverTimestamp() });
-    setItem(name);                // اختياره تلقائيًا
+    setItem(name);
     setNewItemName("");
     setIsAddingNewItem(false);
   };
@@ -112,7 +101,6 @@ const TruckLoadingPage = () => {
       updated: false,
     });
 
-    // إعادة الضبط
     setItem("");
     setQuantity("");
     setUnit(UNITS[0]);
@@ -122,14 +110,14 @@ const TruckLoadingPage = () => {
   /* ---------- حذف ---------- */
   const handleDelete = async (id) => {
     const pwd = prompt("ادخل كلمة المرور للحذف:");
-    if (pwd === "1234" || pwd === "2991034") await deleteDoc(doc(db, collectionName, id));
-    else alert("كلمة المرور خاطئة");
+    if (!["1234", "2991034"].includes(pwd)) return alert("كلمة المرور خاطئة");
+    await deleteDoc(doc(db, collectionName, id));
   };
 
   /* ---------- تعديل ---------- */
   const handleEdit = async (rec) => {
     const pwd = prompt("ادخل كلمة المرور للتعديل:");
-    if (pwd !== "1234" && pwd !== "2991034") return alert("كلمة المرور خاطئة");
+    if (!["1234", "2991034"].includes(pwd)) return alert("كلمة المرور خاطئة");
 
     const newItem = prompt("الصنف الجديد:", rec.item);
     const newQty  = prompt("الكمية الجديدة:", rec.quantity);
@@ -166,7 +154,6 @@ const TruckLoadingPage = () => {
 
       {/* نموذج الإدخال */}
       <form onSubmit={handleAdd} className="form-row">
-        {/* اختيار الصنف */}
         {isAddingNewItem ? (
           <>
             <input
@@ -181,14 +168,11 @@ const TruckLoadingPage = () => {
           <>
             <select
               value={item}
-              onChange={(e) => {
-                if (e.target.value === "__new") {
-                  setIsAddingNewItem(true);
-                  setItem("");
-                } else {
-                  setItem(e.target.value);
-                }
-              }}
+              onChange={(e) =>
+                e.target.value === "__new"
+                  ? (setIsAddingNewItem(true), setItem(""))
+                  : setItem(e.target.value)
+              }
             >
               <option value="">اختر صنفًا...</option>
               {itemsList.map((opt) => (
@@ -199,7 +183,6 @@ const TruckLoadingPage = () => {
           </>
         )}
 
-        {/* الكمية والوحدة */}
         <input
           type="number"
           placeholder="الكمية"
@@ -207,33 +190,25 @@ const TruckLoadingPage = () => {
           onChange={(e) => setQuantity(e.target.value)}
         />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          {UNITS.map((u) => (
-            <option key={u} value={u}>{u}</option>
-          ))}
+          {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
           <option value="أخرى">وحدة أخرى...</option>
         </select>
-
-        {/* ملاحظات */}
         <input
           type="text"
           placeholder="ملاحظات"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-
         <button className="add-button" type="submit">تسجيل</button>
       </form>
 
       {/* البحث */}
       <input
-        className="search"
-        type="text"
-        placeholder="بحث بالاسم أو التاريخ"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        className="search" type="text" placeholder="بحث بالاسم أو التاريخ"
+        value={search} onChange={(e) => setSearch(e.target.value)}
         style={{
-          padding: "10px", border: "none", borderRadius: "6px",
-          marginBottom: "15px", fontSize: "16px", width: "300px", textAlign: "center"
+          padding:"10px", border:"none", borderRadius:"6px",
+          marginBottom:"15px", fontSize:"16px", width:"300px", textAlign:"center"
         }}
       />
 
@@ -241,12 +216,8 @@ const TruckLoadingPage = () => {
       <table className="styled-table">
         <thead>
           <tr>
-            <th>التاريخ</th>
-            <th>الصنف</th>
-            <th>الكمية</th>
-            <th>الوحدة</th>
-            <th>ملاحظات</th>
-            <th>إجراءات</th>
+            <th>التاريخ</th><th>الصنف</th><th>الكمية</th>
+            <th>الوحدة</th><th>ملاحظات</th><th>إجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -255,14 +226,8 @@ const TruckLoadingPage = () => {
           ) : (
             filtered.map((rec) => (
               <tr key={rec.id} className={rec.updated ? "edited-row" : ""}>
-                <td>
-                  {rec.createdAt
-                    ? new Date(rec.createdAt.seconds * 1000).toLocaleDateString("fr-CA")
-                    : "—"}
-                </td>
-                <td>{rec.item}</td>
-                <td>{rec.quantity}</td>
-                <td>{rec.unit}</td>
+                <td>{rec.createdAt ? new Date(rec.createdAt.seconds * 1000).toLocaleDateString("fr-CA") : "—"}</td>
+                <td>{rec.item}</td><td>{rec.quantity}</td><td>{rec.unit}</td>
                 <td>{rec.note || "—"}</td>
                 <td>
                   <button className="edit-btn" onClick={() => handleEdit(rec)}>✏️</button>{" "}
