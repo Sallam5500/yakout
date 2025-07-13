@@ -3,20 +3,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  setDoc,
-  query,
-  orderBy,   // ⭐️ مهم للترتيب
+  collection, addDoc, onSnapshot,
+  deleteDoc, updateDoc, doc, serverTimestamp,
+  setDoc, query, orderBy,
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
-/* تطبيع الاسم: إزالة الفراغات الزائدة + أحرف صغيرة */
+/* تطبيع الاسم */
 const normalize = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
 /* الأصناف الأساسية */
@@ -40,117 +33,117 @@ const BASE_ITEMS = [
 ];
 
 const StreetStore = () => {
-  const navigate                       = useNavigate();
-  const [name, setName]                = useState("");
-  const [customName, setCustomName]    = useState("");
-  const [quantity, setQuantity]        = useState("");
-  const [unit, setUnit]                = useState("عدد");
-  const [items, setItems]              = useState([]);
-  const [editId, setEditId]            = useState(null);
-  const [itemOptions, setItemOptions]  = useState([...BASE_ITEMS, "أدخل صنف جديد"]);
+  const navigate                 = useNavigate();
 
-  /* Collections */
-  const storeCol = collection(db, "street-store");
-  const itemsCol = collection(db, "items");  // للاحتفاظ بأصناف مضافة لاحقًا
+  // مدخلات
+  const [name, setName]          = useState("");
+  const [newName, setNewName]    = useState("");
+  const [quantity, setQty]       = useState("");
+  const [unit, setUnit]          = useState("عدد");
 
-  /* تحميل الأصناف الديناميكية */
+  // بيانات
+  const [items, setItems]        = useState([]);
+  const [options, setOptions]    = useState([]);
+  const [editId, setEditId]      = useState(null);
+
+  /* كولكشنات */
+  const streetCol = collection(db, "street-store");
+  const itemsCol  = collection(db, "items");    // يحتفظ بأسماء أصناف الشارع
+
+  /* تحميل أصناف الشارع + الأساسية */
   useEffect(() => {
     const unsub = onSnapshot(itemsCol, (snap) => {
       const extra = snap.docs.map((d) => d.id);
-      setItemOptions([...BASE_ITEMS, ...extra, "أدخل صنف جديد"]
-        .filter((v, i, arr) => arr.indexOf(v) === i)
-        .sort());
+      // «➕ أضف صنف جديد…» دائمًا أول عنصر
+      setOptions(["_NEW_", ...BASE_ITEMS, ...extra].filter(
+        (v,i,a) => a.indexOf(v) === i
+      ));
     });
     return () => unsub();
   }, []);
 
-  /* تحميل مخزون الشارع بترتيب تصاعدي بالتاريخ */
+  /* تحميل بيانات المخزن بترتيب ثنائي */
   useEffect(() => {
-    const q = query(storeCol, orderBy("date", "asc"));  // يوم 1 ثم 2 ثم 3...
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setItems(data);
-    });
-    return () => unsub();
+    const q = query(
+      streetCol,
+      orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
+    );
+    return onSnapshot(q, (snap) =>
+      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
   }, []);
 
-  /* إضافة أو تحديث صنف */
-  const handleAddOrUpdate = async () => {
-    const rawName   = name === "أدخل صنف جديد" ? customName : name;
-    const finalName = rawName.trim();
-    const key       = normalize(finalName);
+  /* إضافة / تحديث */
+  const handleSave = async () => {
+    const finalName = name === "_NEW_" ? newName.trim() : name;
+    if (!finalName) return alert("أدخل اسم الصنف");
+    if (!quantity)  return alert("أدخل الكمية");
 
-    if (!finalName || !quantity)
-      return alert("من فضلك أدخل الاسم والكمية");
-
-    /* حفظ الصنف الجديد في كولكشن items إن لم يكن موجود */
-    if (name === "أدخل صنف جديد") {
-      await setDoc(doc(db, "items", finalName), { createdAt: serverTimestamp() });
+    // إحفظ الصنف الجديد في itemsCol
+    if (name === "_NEW_") {
+      await setDoc(doc(itemsCol, finalName), { createdAt: serverTimestamp() });
     }
+
+    const payload = {
+      name: finalName,
+      nameKey: normalize(finalName),
+      quantity: parseFloat(quantity),
+      unit,
+    };
 
     if (editId) {
-      const pwd = prompt("ادخل كلمة السر لتعديل الصنف:");
-      if (!["1234", "2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة");
-      await updateDoc(doc(db, "street-store", editId), {
-        name: finalName,
-        nameKey: key,
-        quantity: parseFloat(quantity),
-        unit,
-        isEdited: true,
-      });
+      const pwd = prompt("كلمة مرور التعديل؟");
+      if (pwd !== "2991034") return alert("كلمة المرور غير صحيحة");
+      await updateDoc(doc(streetCol, editId), { ...payload, isEdited: true });
       setEditId(null);
     } else {
-      await addDoc(storeCol, {
-        name: finalName,
-        nameKey: key,
-        quantity: parseFloat(quantity),
-        unit,
-        date: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+      await addDoc(streetCol, {
+        ...payload,
+        date: new Date().toLocaleDateString("fr-CA"),
+        createdAt: serverTimestamp(),
         isEdited: false,
-        timestamp: serverTimestamp(),
       });
     }
 
-    // إعادة تعيين الحقول
-    setName(""); setCustomName(""); setQuantity(""); setUnit("عدد");
+    // إعادة الضبط
+    setName(""); setNewName(""); setQty(""); setUnit("عدد");
   };
 
-  /* حذف صنف */
+  /* حذف */
   const handleDelete = async (id) => {
-    const pwd = prompt("أدخل كلمة المرور للحذف:");
-    if (!["1234", "2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة.");
-    if (!window.confirm("هل أنت متأكد من الحذف؟")) return;
-    await deleteDoc(doc(db, "street-store", id));
+    if (prompt("كلمة المرور؟") !== "2991034") return;
+    if (!window.confirm("تأكيد الحذف؟")) return;
+    await deleteDoc(doc(streetCol, id));
   };
 
-  /* تحميل بيانات صنف للتعديل */
+  /* تحميل للتعديل */
   const handleEdit = (it) => {
-    setName(it.name);
-    setCustomName("");
-    setQuantity(it.quantity);
-    setUnit(it.unit);
-    setEditId(it.id);
+    setName(it.name); setNewName("");
+    setQty(it.quantity); setUnit(it.unit); setEditId(it.id);
   };
 
+  /* واجهة المستخدم */
   return (
     <div className="page-container" dir="rtl">
       <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2 className="page-title">🏪 المخزن اللي في الشارع</h2>
+      <h2 className="page-title">🏪 مخزن الشارع</h2>
 
       {/* نموذج الإدخال */}
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {itemOptions.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+          <option value="_NEW_">➕ أضف صنف جديد…</option>
+          {options.filter(o => o !== "_NEW_").map((opt) => (
+            <option key={opt}>{opt}</option>
           ))}
         </select>
 
-        {name === "أدخل صنف جديد" && (
+        {name === "_NEW_" && (
           <input
-            placeholder="أدخل اسم الصنف"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="اسم الصنف الجديد"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
           />
         )}
 
@@ -158,21 +151,21 @@ const StreetStore = () => {
           type="number"
           placeholder="الكمية"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          onChange={(e) => setQty(e.target.value)}
         />
 
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option>عدد</option><option>كيلو</option><option>شكارة</option>
-          <option>جرام</option><option>برميل</option><option>كيس</option><option>جردل</option>
-          <option>شكاره</option>
+          <option>جرام</option><option>برميل</option><option>كيس</option>
+          <option>جردل</option>
         </select>
 
-        <button className="add-button" onClick={handleAddOrUpdate}>
+        <button type="button" onClick={handleSave}>
           {editId ? "تحديث" : "إضافة"}
         </button>
       </div>
 
-      {/* جدول البيانات */}
+      {/* جدول */}
       <table className="styled-table">
         <thead>
           <tr>
@@ -183,12 +176,10 @@ const StreetStore = () => {
         <tbody>
           {items.map((it) => (
             <tr key={it.id} style={{ backgroundColor: it.isEdited ? "#ffcccc" : "transparent" }}>
-              <td>{it.name}</td>
-              <td>{it.quantity}</td>
-              <td>{it.unit}</td>
+              <td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
               <td>{it.date}</td>
-              <td><button className="edit-btn" onClick={() => handleEdit(it)}>تعديل</button></td>
-              <td><button className="delete-btn" onClick={() => handleDelete(it.id)}>حذف</button></td>
+              <td><button onClick={() => handleEdit(it)}>تعديل</button></td>
+              <td><button onClick={() => handleDelete(it.id)}>حذف</button></td>
             </tr>
           ))}
         </tbody>

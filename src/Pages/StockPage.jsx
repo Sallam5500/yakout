@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import "../GlobalStyles.css";
 import { db } from "../firebase";
 import {
   collection,
@@ -10,9 +12,27 @@ import {
   query,
   orderBy,
   getDocs,
+  serverTimestamp,
 } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
-import "../GlobalStyles.css";
+
+const predefinedItems = [
+  "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
+  "حبيبه", "رموش", "لينزا", "جلاش", "نشابه", "صوابع", "بلح",
+  "علب كريمة", "قشطوطة", "فادج", "كيس كاكو 1.750 جرام", "كيس جرانه",
+  "عزيزية", "بسبوسة تركي", "شكارة سوداني مكسر", "ك بندق ني مكسر",
+  "كيس سوداني روشيه", "كيس بندق محمص 250 جرام", "كيس أكلير",
+  "كرتونة بندق سليم", "ك سكر بودره", "ك جوز هند ناعم", "ك سميد",
+  "جيلاتينة", "ك لبن بودره", "كيس لبن بودره 150 جرام", "شيكولاته اسمر",
+  "شيكولاته بيضاء", "كرتونة زيت", "جركن زيت", "لباني", "باستري",
+  "فانليا", "فاكيوم 7سم", "لون احمر", "علب طلبية", "كرتونة خميرة فورية",
+  "سمنة فرن", "نشا", "سكر", "دقيق اهرام", "وجبة بتي فور",
+  "جوز هند محمص", "لوز محمص مجروش", "جوز هند ابيض", "وجبة بسكوت",
+  "رابطة حلويات", "علب بتي فور نص", "علب بسكوت نص", "علب غريبة نص",
+  "علب كعك ساده نص", "علب كعك ملبن نص", "لعب جاتوه",
+  "دفتر ترنسفير الوان", "ملبن", "وجبه سيرب", "بكر استرتش",
+  "ورق سلوفان موس", "علب جاتوه دسته", "دفتر ترانسفير ساده",
+  "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن"
+];
 
 const StockPage = () => {
   const [stockItems, setStockItems] = useState([]);
@@ -22,9 +42,12 @@ const StockPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // قراءة البيانات من Firestore لحظيًا بترتيب تصاعدي للتاريخ
   useEffect(() => {
-    const q = query(collection(db, "storeItems"), orderBy("date", "asc"));
+    const q = query(
+      collection(db, "storeItems"),
+      orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -59,6 +82,7 @@ const StockPage = () => {
         quantity: parseInt(quantity),
         unit,
         date,
+        createdAt: serverTimestamp(),
       });
     }
 
@@ -73,7 +97,6 @@ const StockPage = () => {
       alert("كلمة المرور خاطئة.");
       return;
     }
-
     await deleteDoc(doc(db, "storeItems", id));
   };
 
@@ -105,11 +128,7 @@ const StockPage = () => {
       item.name.includes(searchTerm) || item.date.includes(searchTerm)
   );
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const uniqueNames = [...new Set(stockItems.map((item) => item.name))];
+  const handlePrint = () => window.print();
 
   return (
     <div className="factory-page">
@@ -118,11 +137,9 @@ const StockPage = () => {
 
       <div className="form-row">
         <select value={name} onChange={(e) => setName(e.target.value)}>
-          <option value="">اختر أو أدخل اسم صنف جديد</option>
-          {uniqueNames.map((itemName, index) => (
-            <option key={index} value={itemName}>
-              {itemName}
-            </option>
+          <option value="">اختر صنف من القائمة</option>
+          {predefinedItems.map((itemName, index) => (
+            <option key={index} value={itemName}>{itemName}</option>
           ))}
         </select>
 

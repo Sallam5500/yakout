@@ -3,27 +3,25 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  query,
-  orderBy          // ⭐️ مضاف للترتيب
+  collection, addDoc, onSnapshot, deleteDoc,
+  updateDoc, doc, serverTimestamp, query, orderBy
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
 const Rooms = () => {
   const navigate = useNavigate();
-  const [name, setName]         = useState("");
-  const [customName, setCustomName] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit, setUnit]         = useState("عدد");
-  const [items, setItems]       = useState([]);
-  const [editId, setEditId]     = useState(null);
 
+  // مدخلات
+  const [name, setName]           = useState("");
+  const [customName, setCustom]   = useState("");
+  const [quantity, setQty]        = useState("");
+  const [unit, setUnit]           = useState("عدد");
+
+  // بيانات العرض
+  const [items, setItems]         = useState([]);
+  const [editId, setEditId]       = useState(null);
+
+  // قائمة الأصناف
   const itemOptions = [
     "بيض","مانجا فليت","فرولة فليت","كيوي فليت","مربي مشمش","لباني ",
     "جبنه تشيز كيك ","رومانتك ابيض ","رومانتك اسمر ","بشر اسمر ",
@@ -32,87 +30,81 @@ const Rooms = () => {
 
   const roomsRef = collection(db, "rooms-store");
 
-  /* تحميل البيانات مرتبة تصاعديًا بالتاريخ */
+  /* ---------- استماع للبيانات بترتيب ثنائي ---------- */
   useEffect(() => {
-    const q = query(roomsRef, orderBy("date", "asc")); // يوم 1 ثم 2 ثم 3...
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setItems(data);
-    });
-    return () => unsubscribe();
+    const q = query(
+      roomsRef,
+      orderBy("date", "asc"),        // اليوم
+      orderBy("createdAt", "asc")    // وقت الإدخال داخل اليوم
+    );
+    return onSnapshot(q, (snap) =>
+      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
   }, []);
 
+  /* ---------- إضافة أو تحديث ---------- */
   const handleAddOrUpdate = async () => {
     const finalName = name === "أدخل صنف جديد" ? customName.trim() : name.trim();
     if (!finalName || !quantity) return alert("من فضلك أدخل الاسم والكمية");
 
+    const payload = {
+      name: finalName,
+      quantity: parseFloat(quantity),
+      unit,
+    };
+
     if (editId) {
-      const password = prompt("ادخل كلمة السر لتعديل الصنف:");
-      if (password !== "1234" && password !== "2991034") {
-        alert("كلمة المرور غير صحيحة");
-        return;
-      }
-      await updateDoc(doc(db, "rooms-store", editId), {
-        name: finalName,
-        quantity: parseFloat(quantity),
-        unit,
-        isEdited: true,
-      });
+      const pwd = prompt("كلمة المرور للتعديل؟");
+      if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة");
+      await updateDoc(doc(roomsRef, editId), { ...payload, isEdited: true });
       setEditId(null);
     } else {
       await addDoc(roomsRef, {
-        name: finalName,
-        quantity: parseFloat(quantity),
-        unit,
-        date: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+        ...payload,
+        date: new Date().toLocaleDateString("fr-CA"), // YYYY‑MM‑DD
+        createdAt: serverTimestamp(),                 // 🆕 يحفظ زمن الإدخال
         isEdited: false,
-        timestamp: serverTimestamp(),
       });
     }
 
-    setName(""); setCustomName(""); setQuantity(""); setUnit("عدد");
+    // إعادة الضبط
+    setName(""); setCustom(""); setQty(""); setUnit("عدد");
   };
 
+  /* ---------- حذف ---------- */
   const handleDelete = async (id) => {
-    const password = prompt("أدخل كلمة المرور للحذف:");
-    if (password !== "1234" && password !== "2991034") {
-      alert("كلمة المرور غير صحيحة.");
-      return;
-    }
-    if (!window.confirm("هل أنت متأكد من الحذف؟")) return;
-    await deleteDoc(doc(db, "rooms-store", id));
+    const pwd = prompt("أدخل كلمة المرور للحذف:");
+    if (!["1234","2991034"].includes(pwd)) return alert("كلمة المرور غير صحيحة");
+    if (!window.confirm("تأكيد الحذف؟")) return;
+    await deleteDoc(doc(roomsRef, id));
   };
 
-  const handleEdit = (item) => {
-    setName(item.name);
-    setCustomName("");
-    setQuantity(item.quantity);
-    setUnit(item.unit);
-    setEditId(item.id);
+  /* ---------- تحميل للتعديل ---------- */
+  const handleEdit = (it) => {
+    setName(it.name); setCustom("");
+    setQty(it.quantity); setUnit(it.unit);
+    setEditId(it.id);
   };
 
+  /* ---------- واجهة المستخدم ---------- */
   return (
     <div className="page-container" dir="rtl">
-      <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <button className="back-button" onClick={()=>navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🢨 غرفة التبريد</h2>
 
       <div className="form-row">
-        <select value={name} onChange={(e) => setName(e.target.value)}>
+        <select value={name} onChange={(e)=>setName(e.target.value)}>
           <option value="">اختر الصنف</option>
-          {itemOptions.map((item, idx) => (
-            <option key={idx} value={item}>{item}</option>
+          {itemOptions.map((opt,i)=>(
+            <option key={i}>{opt}</option>
           ))}
         </select>
 
         {name === "أدخل صنف جديد" && (
           <input
-            type="text"
-            placeholder="أدخل اسم الصنف"
+            placeholder="اسم الصنف الجديد"
             value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
+            onChange={(e)=>setCustom(e.target.value)}
           />
         )}
 
@@ -120,15 +112,15 @@ const Rooms = () => {
           type="number"
           placeholder="الكمية"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          onChange={(e)=>setQty(e.target.value)}
         />
 
-        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+        <select value={unit} onChange={(e)=>setUnit(e.target.value)}>
           <option>عدد</option><option>كيلو</option><option>صاج</option>
           <option>جردل</option><option>كيس</option><option>برنيكة</option>
         </select>
 
-        <button className="add-button" onClick={handleAddOrUpdate}>
+        <button onClick={handleAddOrUpdate}>
           {editId ? "تحديث" : "إضافة"}
         </button>
       </div>
@@ -141,14 +133,12 @@ const Rooms = () => {
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr key={item.id} style={{ backgroundColor: item.isEdited ? "#ffcccc" : "transparent", textAlign:"center" }}>
-              <td>{item.name}</td>
-              <td>{item.quantity}</td>
-              <td>{item.unit}</td>
-              <td>{item.date}</td>
-              <td><button className="edit-btn" onClick={() => handleEdit(item)}>تعديل</button></td>
-              <td><button className="delete-btn" onClick={() => handleDelete(item.id)}>حذف</button></td>
+          {items.map((it)=>(
+            <tr key={it.id} style={{ backgroundColor: it.isEdited ? "#ffcccc" : "transparent", textAlign:"center" }}>
+              <td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
+              <td>{it.date}</td>
+              <td><button onClick={()=>handleEdit(it)}>تعديل</button></td>
+              <td><button onClick={()=>handleDelete(it.id)}>حذف</button></td>
             </tr>
           ))}
         </tbody>

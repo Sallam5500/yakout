@@ -1,137 +1,186 @@
-// src/pages/ExportPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
 import { db } from "../firebase";
 import {
-  collection,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  query,
-  where,
-  getDocs,
-  doc,
-  orderBy,   // ⭐️
-  deleteDoc   // ← سنستخدمه بدل updateDoc للحذف الفعلي
+  collection, onSnapshot, addDoc, updateDoc,
+  query, where, getDocs, doc, orderBy,
+  deleteDoc, serverTimestamp,
 } from "firebase/firestore";
+
+/* الوحدات الافتراضية ( fallback ) */
+const unitsList = [
+  "عدد", "شكاره", "جردل", "كيلو", "كيس",
+  "برنيكه", "جرام", "برميل", "كرتونة"
+];
 
 const ExportPage = () => {
   const [stockItems, setStockItems] = useState([]);
   const [exportItems, setExportItems] = useState([]);
+
+  // إدخال المستخدم
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("عدد");
+
+  // قوائم ديناميكية
+  const [availableNames, setAvailableNames] = useState([]);  // 🆕
+  const [availableUnits, setAvailableUnits] = useState(unitsList); // 🆕
+
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
-  // جلب بيانات المخزون لحظيًا (ترتيب تصاعدي بالتاريخ لسهولة القراءة فقط)
+  /* ---------- استماع للمخزون ---------- */
   useEffect(() => {
-    const q = query(collection(db, "storeItems"), orderBy("date", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const q = query(
+      collection(db, "storeItems"),
+      orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
+    );
+    return onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setStockItems(items);
+
+      // حدّث قائمة الأسماء الفريدة
+      const names = [...new Set(items.map((it) => it.name))].sort();
+      setAvailableNames(names);
     });
-    return () => unsubscribe();
   }, []);
 
-  // جلب بيانات الصادرات لحظيًا بترتيب تصاعدي للتاريخ
+  /* ---------- استماع للصادرات ---------- */
   useEffect(() => {
-    const q = query(collection(db, "exportItems"), orderBy("date", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setExportItems(items);
-    });
-    return () => unsubscribe();
+    const q = query(
+      collection(db, "exportItems"),
+      orderBy("date", "asc"),
+      orderBy("createdAt", "asc")
+    );
+    return onSnapshot(q, (snap) =>
+      setExportItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
   }, []);
 
-  // تسجيل عملية تصدير
+  /* ---------- تحديث الوحدات عند تغيير الاسم ---------- */
+  useEffect(() => {
+    const unitsForName = [
+      ...new Set(stockItems
+        .filter((it) => it.name === name.trim())
+        .map((it) => it.unit))
+    ];
+    if (unitsForName.length) {
+      setAvailableUnits(unitsForName);
+      if (!unitsForName.includes(unit)) setUnit(unitsForName[0]);
+    } else {
+      setAvailableUnits(unitsList); // صنف جديد لم يُسجَّل بعد
+    }
+  }, [name, stockItems]);  // يعيد التقييم مع تغيّر الاسم أو المخزون
+
+  /* ---------- تسجيل صادر ---------- */
   const handleAddExport = async () => {
-    if (!name || !quantity) {
+    const cleanedName = name.trim();
+    if (!cleanedName || !quantity) {
       alert("يرجى إدخال اسم الصنف والكمية.");
       return;
     }
-
     const date = new Date().toLocaleDateString("fr-CA");
 
-    // البحث في المخزون
-    const q = query(
+    // ابحث بالاسم فقط
+    const qStock = query(
       collection(db, "storeItems"),
-      where("name", "==", name),
-      where("unit", "==", unit)
+      where("name", "==", cleanedName)
     );
-    const snapshot = await getDocs(q);
+    const stockSnap = await getDocs(qStock);
 
-    if (snapshot.empty) {
-      alert("الصنف غير موجود في المخزون.");
+    if (stockSnap.empty) {
+      alert("الصنف غير موجود في المخزن.");
       return;
     }
 
-    const stockDoc = snapshot.docs[0];
-    const stockData = stockDoc.data();
-
-    if (stockData.quantity < parseInt(quantity)) {
-      alert("الكمية غير متوفرة في المخزون.");
+    // مطابقة الوحدة
+    const matchDoc = stockSnap.docs.find((d) => d.data().unit === unit);
+    if (!matchDoc) {
+      const unitsAvail = [...new Set(stockSnap.docs.map((d) => d.data().unit))].join(" ، ");
+      alert(`الوحدة «${unit}» غير مسجَّلة لهذا الصنف.\nالوحدات المتاحة: ${unitsAvail}`);
       return;
     }
 
-    // خصم الكمية من المخزون
-    const newQty = stockData.quantity - parseInt(quantity);
-    await updateDoc(doc(db, "storeItems", stockDoc.id), { quantity: newQty });
+    const { quantity: availQty } = matchDoc.data();
+    const qtyWanted = parseInt(quantity);
 
-    // تسجيل الصادر
-    await addDoc(collection(db, "exportItems"), {
-      name,
-      quantity: parseInt(quantity),
-      unit,
-      date,
+    if (availQty < qtyWanted) {
+      alert(`الكمية غير متوفرة. المتاح: ${availQty}`);
+      return;
+    }
+
+    // خصم من المخزون
+    await updateDoc(doc(db, "storeItems", matchDoc.id), {
+      quantity: availQty - qtyWanted,
     });
 
+    // دمج/إضافة إلى exportItems
+    const qExport = query(
+      collection(db, "exportItems"),
+      where("name", "==", cleanedName),
+      where("unit", "==", unit),
+      where("date", "==", date)
+    );
+    const exportSnap = await getDocs(qExport);
+
+    if (!exportSnap.empty) {
+      const expDoc = exportSnap.docs[0];
+      await updateDoc(doc(db, "exportItems", expDoc.id), {
+        quantity: expDoc.data().quantity + qtyWanted,
+      });
+    } else {
+      await addDoc(collection(db, "exportItems"), {
+        name: cleanedName,
+        quantity: qtyWanted,
+        unit,
+        date,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // إعادة الضبط
     setName("");
     setQuantity("");
     setUnit("عدد");
   };
 
-  // حذف صادر
+  /* ---------- حذف صادر ---------- */
   const handleDelete = async (id) => {
-    const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
-    await deleteDoc(doc(db, "exportItems", id));   // حذف فعلي من Firestore
+    if (prompt("كلمة المرور؟") !== "2991034") return;
+    await deleteDoc(doc(db, "exportItems", id));
   };
 
-  const filteredItems = exportItems.filter(
-    (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
+  /* ---------- فلترة الجدول ---------- */
+  const filtered = exportItems.filter(
+    (it) => it.name.includes(searchTerm) || it.date.includes(searchTerm)
   );
 
-  const handlePrint = () => {
-    window.print();
-  };
-
+  /* ---------- UI ---------- */
   return (
     <div className="factory-page">
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📤 الصادرات</h2>
 
+      {/* إدخال صادر */}
       <div className="form-row">
+        {/* اسم الصنف: ديناميكي من المخزون */}
         <select value={name} onChange={(e) => setName(e.target.value)}>
-          <option value="">اختر الصنف</option>
-          {[...new Set(stockItems.map((item) => item.name))]
-            .sort()
-            .map((itemName, index) => (
-              <option key={index} value={itemName}>{itemName}</option>
-            ))}
+          <option value="">اختر صنف</option>
+          {availableNames.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
         </select>
 
+        <input
+          type="text"
+          placeholder="أو اكتب صنف جديد"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        {/* الكمية */}
         <input
           type="number"
           placeholder="الكمية"
@@ -139,57 +188,41 @@ const ExportPage = () => {
           onChange={(e) => setQuantity(e.target.value)}
         />
 
+        {/* الوحدة: تتغيّر حسب الصنف */}
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option value="عدد">عدد</option>
-          <option value="جردل">جردل</option>
-          <option value="كيلو">كيلو</option>
-          <option value="كيس">كيس</option>
-          <option value="برنيكه">برنيكه</option>
-          <option value="جرام">جرام</option>
-          <option value="برميل">برميل</option>
-          <option value="كرتونة">كرتونة</option>
+          {availableUnits.map((u) => (
+            <option key={u} value={u}>{u}</option>
+          ))}
         </select>
 
-        <button onClick={handleAddExport}>➕ تسجيل صادر</button>
+        <button type="button" onClick={handleAddExport}>➕ تسجيل صادر</button>
       </div>
 
+      {/* بحث وطباعة */}
       <div className="form-row">
         <input
-          type="text"
           className="search"
           placeholder="🔍 ابحث بالاسم أو التاريخ"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <button onClick={handlePrint}>🖨️ طباعة</button>
+        <button type="button" onClick={() => window.print()}>🖨️ طباعة</button>
       </div>
 
+      {/* جدول الصادرات */}
       <table className="styled-table">
-        <thead>
-          <tr>
-            <th>📅 التاريخ</th>
-            <th>📦 الصنف</th>
-            <th>🔢 الكمية</th>
-            <th>⚖️ الوحدة</th>
-            <th>🛠️ إجراءات</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>📅 التاريخ</th><th>📦 الصنف</th><th>🔢 الكمية</th>
+          <th>⚖️ الوحدة</th><th>🛠️ إجراءات</th>
+        </tr></thead>
         <tbody>
-          {filteredItems.length === 0 ? (
-            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
-          ) : (
-            filteredItems.map((item) => (
-              <tr key={item.id}>
-                <td>{item.date}</td>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.unit}</td>
-                <td>
-                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
-                </td>
-              </tr>
-            ))
-          )}
+          {filtered.length ? filtered.map((it) => (
+            <tr key={it.id}>
+              <td>{it.date}</td><td>{it.name}</td>
+              <td>{it.quantity}</td><td>{it.unit}</td>
+              <td><button onClick={() => handleDelete(it.id)}>🗑️</button></td>
+            </tr>
+          )) : <tr><td colSpan="5">لا توجد بيانات.</td></tr>}
         </tbody>
       </table>
     </div>
