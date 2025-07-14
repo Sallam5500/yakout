@@ -3,7 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./Store.css";
 
-const Store = () => {
+export default function Store() {
   const navigate = useNavigate();
 
   return (
@@ -12,33 +12,24 @@ const Store = () => {
       <h2>المخزن الرئيسي</h2>
 
       <div className="cards-container">
-        {/* ✅ كارت البضاعة */}
-        <div
-          className="card-section"
-          onClick={() => navigate("/store/stock")}
-          style={{ cursor: "pointer" }}
-        >
+        {/* البضاعة */}
+        <div className="card-section" onClick={() => navigate("/store/stock")}>
           <h3>📦 البضاعة (المخزون الرئيسي)</h3>
           <p>عرض وتسجيل أصناف البضاعة المتوفرة</p>
           <button>الدخول</button>
         </div>
 
-        {/* ✅ كارت الصادرات */}
-        <div
-          className="card-section"
-          onClick={() => navigate("/store/exports")}
-          style={{ cursor: "pointer" }}
-        >
+        {/* الصادرات */}
+        <div className="card-section" onClick={() => navigate("/store/exports")}>
           <h3>📤 الصادرات</h3>
           <p>تسجيل الصادرات والخصم من المخزون</p>
           <button>الدخول</button>
         </div>
 
-        {/* ⭐ الكارت الجديد: ملخّص المخزن */}
+        {/* ملخّص المخزن */}
         <div
           className="card-section"
-          onClick={() => navigate("/main-summary")}
-          style={{ cursor: "pointer" }}
+          onClick={() => navigate("/store/main-summary")}  
         >
           <h3>📊 ملخّص المخزن</h3>
           <p>إجمالي الداخل والخارج ورصيد كل صنف</p>
@@ -47,6 +38,4 @@ const Store = () => {
       </div>
     </div>
   );
-};
-
-export default Store;
+}

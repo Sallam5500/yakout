@@ -61,7 +61,9 @@ export default function App() {
         <Route path="/store" element={<Store />} />
         <Route path="/store/stock"   element={<StockPage />} />
         <Route path="/store/exports" element={<ExportPage />} />
-        <Route path="/store/summary" element={<MainSummary />} />
+     <Route path="/store/main-summary" element={<MainSummary />} />
+
+
 
         {/* المصنع */}
         <Route path="/factory" element={<Factory />} />
