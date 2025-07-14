@@ -4,11 +4,13 @@ import { useNavigate } from "react-router-dom";
 const InternalStore = () => {
   const navigate = useNavigate();
 
+  /* ✨ ضفت كارت الملخص */
   const sections = [
+    { name: "📦 ملخص المخزن",          path: "/street-stock-summary" },
     { name: "🏪 المخزن اللي في الشارع", path: "/internal-store/street-store" },
-    { name: "🚪 قسم الغرف", path: "/internal-store/rooms" },
-    { name: "📤 الصادر من المخزن", path: "/internal-store/street-out" },
-    { name: "📤 الصادر من الغرف", path: "/internal-store/rooms-out" },
+    { name: "🚪 قسم الغرف",             path: "/internal-store/rooms" },
+    { name: "📤 الصادر من المخزن",      path: "/internal-store/street-out" },
+    { name: "📤 الصادر من الغرف",       path: "/internal-store/rooms-out" },
   ];
 
   return (
@@ -17,9 +19,9 @@ const InternalStore = () => {
       <h2>المخزن الداخلي</h2>
 
       <div className="factory-sections">
-        {sections.map((section, index) => (
+        {sections.map((section, idx) => (
           <div
-            key={index}
+            key={idx}
             className="factory-card"
             onClick={() => navigate(section.path)}
           >

@@ -1,22 +1,24 @@
+// src/pages/StockPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
 import { db } from "../firebase";
 import {
   collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  updateDoc,
   query,
   orderBy,
+  onSnapshot,
+  addDoc,
   getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
 
 const predefinedItems = [
-  "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
+"شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
   "حبيبه", "رموش", "لينزا", "جلاش", "نشابه", "صوابع", "بلح",
   "علب كريمة", "قشطوطة", "فادج", "كيس كاكو 1.750 جرام", "كيس جرانه",
   "عزيزية", "بسبوسة تركي", "شكارة سوداني مكسر", "ك بندق ني مكسر",
@@ -32,203 +34,124 @@ const predefinedItems = [
   "دفتر ترنسفير الوان", "ملبن", "وجبه سيرب", "بكر استرتش",
   "ورق سلوفان موس", "علب جاتوه دسته", "دفتر ترانسفير ساده",
   "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن"
+]
+
+const unitsList = [
+  "عدد", "شكاره", "جردل", "كيلو", "كيس",
+  "برنيكه", "جرام", "برميل", "كرتونة"
 ];
 
-const StockPage = () => {
-  const [stockItems, setStockItems] = useState([]);
+export default function StockPage() {
+  const nav = useNavigate();
+
+  const [stock, setStock] = useState([]);
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const [quantity, setQty] = useState("");
   const [unit, setUnit] = useState("عدد");
-  const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
+  /* === جلب البيانات لحظيًا === */
   useEffect(() => {
-    const q = query(
-      collection(db, "storeItems"),
-      orderBy("date", "asc"),
-      orderBy("createdAt", "asc")
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setStockItems(items);
+    const q = query(collection(db, "storeItems"), orderBy("date","asc"), orderBy("createdAt","asc"));
+    const unsub = onSnapshot(q, snap => {
+      setStock(snap.docs.map(d=>({id:d.id, ...d.data()})));
     });
-
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  const handleAddStock = async () => {
-    if (!name || !quantity) {
-      alert("يرجى إدخال اسم الصنف والكمية.");
-      return;
-    }
+  /* === إضافة / دمج مخزون اليوم === */
+  const handleAdd = async () => {
+    const clean = name.trim();
+    const qtyNum = parseInt(quantity);
+    if (!clean || !qtyNum) return alert("أدخل الاسم والكمية");
 
     const date = new Date().toLocaleDateString("fr-CA");
 
-    const existing = stockItems.find(
-      (item) => item.name === name && item.unit === unit && item.date === date
-    );
+    // حساب الإجمالي السابق لهذا الصنف + الوحدة (لكل الأيام)
+    const qPrev = query(collection(db,"storeItems"), where("name","==",clean), where("unit","==",unit));
+    const prevSnap = await getDocs(qPrev);
+    const prevTotal = prevSnap.docs.reduce((s,d)=> s + (d.data().currentQty ?? d.data().quantity ?? 0), 0);
 
-    if (existing) {
-      const updatedQuantity = existing.quantity + parseInt(quantity);
-      await updateDoc(doc(db, "storeItems", existing.id), {
-        quantity: updatedQuantity,
+    const currentTotal = prevTotal + qtyNum;
+
+    // هل يوجد سجل لنفس اليوم؟
+    const qToday = query(collection(db,"storeItems"), where("name","==",clean), where("unit","==",unit), where("date","==",date));
+    const todaySnap = await getDocs(qToday);
+
+    if (!todaySnap.empty) {
+      // حدث السطر الحالى
+      const docRef = todaySnap.docs[0].ref;
+      await updateDoc(docRef, {
+        quantity: (todaySnap.docs[0].data().quantity || 0) + qtyNum,
+        prevQty: prevTotal,
+        currentQty: currentTotal,
       });
     } else {
-      await addDoc(collection(db, "storeItems"), {
-        name,
-        quantity: parseInt(quantity),
+      await addDoc(collection(db,"storeItems"), {
+        name: clean,
+        quantity: qtyNum,
         unit,
+        prevQty: prevTotal,
+        currentQty: currentTotal,
         date,
         createdAt: serverTimestamp(),
+        source: "main-stock"
       });
     }
 
-    setName("");
-    setQuantity("");
-    setUnit("عدد");
+    setName(""); setQty(""); setUnit("عدد"); setSearch("");
   };
 
+  /* === حذف سجل مفرد === */
   const handleDelete = async (id) => {
-    const password = prompt("ادخل كلمة المرور لحذف الصنف:");
-    if (password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
-    await deleteDoc(doc(db, "storeItems", id));
+    if (prompt("كلمة المرور؟") !== "2991034") return;
+    await deleteDoc(doc(db,"storeItems",id));
   };
 
-  const handleDeleteAll = async () => {
-    const confirm = window.confirm("هل أنت متأكد أنك تريد حذف كل البيانات؟");
-    if (!confirm) return;
-
-    const password = prompt("ادخل كلمة المرور لحذف جميع البيانات:");
-    if (password !== "2991034") {
-      alert("كلمة المرور خاطئة.");
-      return;
-    }
-
-    try {
-      const snapshot = await getDocs(collection(db, "storeItems"));
-      const deletions = snapshot.docs.map((docSnap) =>
-        deleteDoc(doc(db, "storeItems", docSnap.id))
-      );
-      await Promise.all(deletions);
-      alert("✅ تم حذف كل البيانات بنجاح.");
-    } catch (error) {
-      console.error("❌ فشل الحذف:", error);
-      alert("حدث خطأ أثناء الحذف.");
-    }
-  };
-
-  const filteredItems = stockItems.filter(
-    (item) =>
-      item.name.includes(searchTerm) || item.date.includes(searchTerm)
-  );
-
-  const handlePrint = () => window.print();
+  /* === بحث بسيط === */
+  const show = stock.filter(it => it.name.includes(search) || it.date.includes(search));
 
   return (
     <div className="factory-page">
-      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <button className="back-btn" onClick={()=>nav(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📦 البضاعة (المخزون الرئيسي)</h2>
 
       <div className="form-row">
-        <select value={name} onChange={(e) => setName(e.target.value)}>
-          <option value="">اختر صنف من القائمة</option>
-          {predefinedItems.map((itemName, index) => (
-            <option key={index} value={itemName}>{itemName}</option>
-          ))}
+        <select value={name} onChange={e=>setName(e.target.value)}>
+          <option value="">اختر من القائمة</option>
+          {predefinedItems.map(n=><option key={n}>{n}</option>)}
         </select>
 
-        <input
-          type="text"
-          placeholder="أو اكتب صنف جديد"
-          onChange={(e) => setName(e.target.value)}
-          value={name}
-        />
-
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
-
-        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option value="عدد">عدد</option>
-          <option value="شكاره">شكاره</option>
-          <option value="جردل">جردل</option>
-          <option value="كيلو">كيلو</option>
-          <option value="كيس">كيس</option>
-          <option value="برنيكه">برنيكه</option>
-          <option value="جرام">جرام</option>
-          <option value="برميل">برميل</option>
-          <option value="كرتونة">كرتونة</option>
+        <input placeholder="أو اكتب صنف جديد" value={name} onChange={e=>setName(e.target.value)} />
+        <input type="number" placeholder="الكمية" value={quantity} onChange={e=>setQty(e.target.value)} />
+        <select value={unit} onChange={e=>setUnit(e.target.value)}>
+          {unitsList.map(u=><option key={u}>{u}</option>)}
         </select>
-
-        <button onClick={handleAddStock}>➕ إضافة للمخزن</button>
+        <button onClick={handleAdd}>➕ إضافة للمخزن</button>
       </div>
 
       <div className="form-row">
-        <input
-          type="text"
-          className="search"
-          placeholder="🔍 ابحث بالاسم أو التاريخ"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <button onClick={handlePrint}>🖨️ طباعة</button>
+        <input className="search" placeholder="🔍 ابحث بالاسم أو التاريخ" value={search} onChange={e=>setSearch(e.target.value)} />
+        <button onClick={()=>window.print()}>🖨️ طباعة</button>
       </div>
 
       <table className="styled-table">
         <thead>
           <tr>
-            <th>📅 التاريخ</th>
-            <th>📦 الصنف</th>
-            <th>🔢 الكمية</th>
-            <th>⚖️ الوحدة</th>
-            <th>🛠️ إجراءات</th>
+            <th>📅 التاريخ</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th>
+            <th>السابق</th><th>الحالي</th><th>حذف</th>
           </tr>
         </thead>
         <tbody>
-          {filteredItems.length === 0 ? (
-            <tr><td colSpan="5">لا توجد بيانات.</td></tr>
-          ) : (
-            filteredItems.map((item) => (
-              <tr key={item.id}>
-                <td>{item.date}</td>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.unit}</td>
-                <td>
-                  <button onClick={() => handleDelete(item.id)}>🗑️</button>
-                </td>
-              </tr>
-            ))
-          )}
+          {show.length ? show.map(it=>(
+            <tr key={it.id}>
+              <td>{it.date}</td><td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
+              <td>{it.prevQty ?? "-"}</td><td>{it.currentQty ?? "-"}</td>
+              <td><button onClick={()=>handleDelete(it.id)}>🗑️</button></td>
+            </tr>
+          )) : <tr><td colSpan="7">لا توجد بيانات.</td></tr>}
         </tbody>
       </table>
-
-      <button
-        className="delete-all-btn"
-        style={{
-          backgroundColor: "darkred",
-          color: "white",
-          marginTop: "20px",
-          padding: "10px 20px",
-          border: "none",
-          borderRadius: "8px",
-          cursor: "pointer",
-        }}
-        onClick={handleDeleteAll}
-      >
-        🧹 حذف كل البيانات
-      </button>
     </div>
   );
-};
-
-export default StockPage;
+}

@@ -4,17 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
   collection, addDoc, onSnapshot,
-  deleteDoc, updateDoc, doc, serverTimestamp,
-  setDoc, query, orderBy,
+  deleteDoc, updateDoc, doc, serverTimestamp, setDoc,
+  query, orderBy, getDocs, collectionGroup
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
-/* تطبيع الاسم */
-const normalize = (s) => s.trim().replace(/\s+/g, " ").toLowerCase();
+const normalize = (s = "") => String(s).trim().replace(/\s+/g, " ").toLowerCase();
+const isAddition = (path) => path.includes("street-store");
+const isDeduction = (path) => path.includes("street-out");
 
-/* الأصناف الأساسية */
 const BASE_ITEMS = [
-  "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
+ "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
   "حبيبه", "رموش", "لينزا", "جلاش", "نشابه", "صوابع", "بلح",
   "علب كريمة", "قشطوطة", "فادج", "كيس كاكو 1.750 جرام", "كيس جرانه",
   "عزيزية", "بسبوسة تركي", "شكارة سوداني مكسر", "ك بندق ني مكسر",
@@ -33,126 +33,166 @@ const BASE_ITEMS = [
 ];
 
 const StreetStore = () => {
-  const navigate                 = useNavigate();
+  const navigate = useNavigate();
 
-  // مدخلات
-  const [name, setName]          = useState("");
-  const [newName, setNewName]    = useState("");
-  const [quantity, setQty]       = useState("");
-  const [unit, setUnit]          = useState("عدد");
+  const [name, setName] = useState("");
+  const [quantity, setQty] = useState("");
+  const [unit, setUnit] = useState("عدد");
+  const [editId, setEditId] = useState(null);
+  const [items, setItems] = useState([]);
+  const [options, setOptions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filtered, setFiltered] = useState([]);
+  const [totalQty, setTotalQty] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
 
-  // بيانات
-  const [items, setItems]        = useState([]);
-  const [options, setOptions]    = useState([]);
-  const [editId, setEditId]      = useState(null);
+  const itemsCol = collection(db, "items");
 
-  /* كولكشنات */
-  const streetCol = collection(db, "street-store");
-  const itemsCol  = collection(db, "items");    // يحتفظ بأسماء أصناف الشارع
-
-  /* تحميل أصناف الشارع + الأساسية */
+  /* تحميل أسماء الأصناف */
   useEffect(() => {
     const unsub = onSnapshot(itemsCol, (snap) => {
       const extra = snap.docs.map((d) => d.id);
-      // «➕ أضف صنف جديد…» دائمًا أول عنصر
-      setOptions(["_NEW_", ...BASE_ITEMS, ...extra].filter(
-        (v,i,a) => a.indexOf(v) === i
-      ));
+      setOptions([...BASE_ITEMS, ...extra].filter((v, i, a) => a.indexOf(v) === i));
     });
     return () => unsub();
   }, []);
 
-  /* تحميل بيانات المخزن بترتيب ثنائي */
+  /* تحميل بيانات اليوم */
   useEffect(() => {
-    const q = query(
-      streetCol,
-      orderBy("date", "asc"),
-      orderBy("createdAt", "asc")
-    );
-    return onSnapshot(q, (snap) =>
-      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
-  }, []);
+    const dayDoc = doc(db, "street-store", selectedDate);
+    const subCol = collection(dayDoc, "items");
+    const q = query(subCol, orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data(), date: selectedDate }));
+      setItems(data);
+      setFiltered(data);
+    });
+    return () => unsub();
+  }, [selectedDate]);
 
-  /* إضافة / تحديث */
+  /* حساب الكمية السابقة قبل الحفظ */
+  const calcPrevTotal = async (nameKey) => {
+    let add = 0;
+    let out = 0;
+    const all = await getDocs(collectionGroup(db, "items"));
+    all.docs.forEach((snap) => {
+      const data = snap.data();
+      if (!data.nameKey && data.name) data.nameKey = normalize(data.name);
+      if (data.nameKey !== nameKey) return;
+
+      const parentDate = snap.ref.parent.parent.id; // YYYY-MM-DD
+      if (parentDate >= selectedDate) return; // نحتاج ما قبل اليوم الحالي فقط
+
+      const qty = parseFloat(data.quantity) || 0;
+      if (isAddition(snap.ref.path)) add += qty;
+      else if (isDeduction(snap.ref.path)) out += qty;
+    });
+    return add - out; // صافي السابق
+  };
+
   const handleSave = async () => {
-    const finalName = name === "_NEW_" ? newName.trim() : name;
+    const finalName = name.trim();
     if (!finalName) return alert("أدخل اسم الصنف");
-    if (!quantity)  return alert("أدخل الكمية");
+    if (!quantity) return alert("أدخل الكمية");
 
-    // إحفظ الصنف الجديد في itemsCol
-    if (name === "_NEW_") {
+    if (!options.includes(finalName)) {
       await setDoc(doc(itemsCol, finalName), { createdAt: serverTimestamp() });
     }
 
+    const nameKey = normalize(finalName);
+    const qtyNum = parseFloat(quantity);
+
+    const prevTotal = await calcPrevTotal(nameKey);
+    const currentTotal = prevTotal + qtyNum;
+
     const payload = {
       name: finalName,
-      nameKey: normalize(finalName),
-      quantity: parseFloat(quantity),
+      nameKey,
+      quantity: qtyNum,
       unit,
+      prevQty: prevTotal,
+      currentQty: currentTotal,
+      createdAt: serverTimestamp(),
+      isEdited: !!editId,
     };
+
+    const dayDoc = doc(db, "street-store", selectedDate);
+    const subCol = collection(dayDoc, "items");
 
     if (editId) {
       const pwd = prompt("كلمة مرور التعديل؟");
       if (pwd !== "2991034") return alert("كلمة المرور غير صحيحة");
-      await updateDoc(doc(streetCol, editId), { ...payload, isEdited: true });
+      await updateDoc(doc(subCol, editId), payload);
       setEditId(null);
     } else {
-      await addDoc(streetCol, {
-        ...payload,
-        date: new Date().toLocaleDateString("fr-CA"),
-        createdAt: serverTimestamp(),
-        isEdited: false,
-      });
+      await addDoc(subCol, payload);
     }
 
-    // إعادة الضبط
-    setName(""); setNewName(""); setQty(""); setUnit("عدد");
+    setName(""); setQty(""); setUnit("عدد");
   };
 
-  /* حذف */
   const handleDelete = async (id) => {
-    if (prompt("كلمة المرور؟") !== "2991034") return;
+    const pwd = prompt("كلمة المرور؟");
+    if (pwd !== "2991034") return;
     if (!window.confirm("تأكيد الحذف؟")) return;
-    await deleteDoc(doc(streetCol, id));
+
+    const dayDoc = doc(db, "street-store", selectedDate);
+    const subCol = collection(dayDoc, "items");
+    await deleteDoc(doc(subCol, id));
   };
 
-  /* تحميل للتعديل */
   const handleEdit = (it) => {
-    setName(it.name); setNewName("");
-    setQty(it.quantity); setUnit(it.unit); setEditId(it.id);
+    setName(it.name);
+    setQty(it.quantity);
+    setUnit(it.unit);
+    setEditId(it.id);
   };
 
-  /* واجهة المستخدم */
+  const handleSearch = () => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) { setFiltered(items); setTotalQty(null); return; }
+
+    const data = items.filter((it) => normalize(it.name).includes(term));
+    setFiltered(data);
+
+    const total = data.reduce((sum, it) => sum + parseFloat(it.quantity || 0), 0);
+    setTotalQty(total);
+  };
+
   return (
     <div className="page-container" dir="rtl">
-      <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <div className="top-bar">
+        <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
+        <button onClick={() => window.print()}>🖨️ طباعة</button>
+      </div>
+
       <h2 className="page-title">🏪 مخزن الشارع</h2>
+
+      {/* اختيار التاريخ */}
+      <div className="form-row">
+        <label>📅 اختر التاريخ:</label>
+        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+      </div>
+
+      {/* البحث */}
+      <div className="form-row">
+        <input type="text" placeholder="ابحث باسم الصنف" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <button onClick={handleSearch}>🔍 بحث</button>
+        {totalQty !== null && (
+          <span style={{ marginRight: "1rem", color: "#007700", fontWeight: "bold" }}>
+            🧮 إجمالي الكمية: {totalQty}
+          </span>
+        )}
+      </div>
 
       {/* نموذج الإدخال */}
       <div className="form-row">
-        <select value={name} onChange={(e) => setName(e.target.value)}>
-          <option value="">اختر الصنف</option>
-          <option value="_NEW_">➕ أضف صنف جديد…</option>
-          {options.filter(o => o !== "_NEW_").map((opt) => (
-            <option key={opt}>{opt}</option>
-          ))}
-        </select>
+        <input list="items-list" placeholder="اسم الصنف" value={name} onChange={(e) => setName(e.target.value)} />
+        <datalist id="items-list">
+          {options.map((opt) => <option key={opt} value={opt} />)}
+        </datalist>
 
-        {name === "_NEW_" && (
-          <input
-            placeholder="اسم الصنف الجديد"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-        )}
-
-        <input
-          type="number"
-          placeholder="الكمية"
-          value={quantity}
-          onChange={(e) => setQty(e.target.value)}
-        />
+        <input type="number" placeholder="الكمية" value={quantity} onChange={(e) => setQty(e.target.value)} />
 
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           <option>عدد</option><option>كيلو</option><option>شكارة</option>
@@ -160,24 +200,30 @@ const StreetStore = () => {
           <option>جردل</option>
         </select>
 
-        <button type="button" onClick={handleSave}>
-          {editId ? "تحديث" : "إضافة"}
-        </button>
+        <button onClick={handleSave}>{editId ? "تحديث" : "إضافة"}</button>
       </div>
 
-      {/* جدول */}
+      {/* جدول البيانات */}
       <table className="styled-table">
         <thead>
           <tr>
-            <th>الاسم</th><th>الكمية</th><th>الوحدة</th>
-            <th>التاريخ</th><th>تعديل</th><th>حذف</th>
+            <th>الاسم</th>
+            <th>الكمية</th>
+            <th>السابق</th>
+            <th>الحالي</th>
+            <th>الوحدة</th>
+            <th>تعديل</th>
+            <th>حذف</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((it) => (
+          {filtered.map((it) => (
             <tr key={it.id} style={{ backgroundColor: it.isEdited ? "#ffcccc" : "transparent" }}>
-              <td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
-              <td>{it.date}</td>
+              <td>{it.name}</td>
+              <td>{it.quantity}</td>
+              <td>{it.prevQty ?? "-"}</td>
+              <td>{it.currentQty ?? "-"}</td>
+              <td>{it.unit}</td>
               <td><button onClick={() => handleEdit(it)}>تعديل</button></td>
               <td><button onClick={() => handleDelete(it.id)}>حذف</button></td>
             </tr>

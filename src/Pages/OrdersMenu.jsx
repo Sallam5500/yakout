@@ -8,20 +8,17 @@ const OrdersMenu = () => {
 
   const sections = [
     { label: "🍬 الحلويات الشرقية", path: "/factory/orders/eastern" },
-    { label: "🍰 الجاتوه", path: "/factory/orders/gateau" },
-    { label: "🎂 التورت", path: "/factory/orders/torte" },
-    { label: "🔪 التقطيعات", path: "/factory/orders/cuts" },
-    { label: "🍧 الموس", path: "/factory/orders/mousse" },
-    { label: "🍮 الموس الفرنسي", path: "/factory/orders/french-mousse" },
+    { label: "🍰 الجاتوه",           path: "/factory/orders/gateau"  },
+    { label: "🎂 التورت",            path: "/factory/orders/torte"   },
+    { label: "🔪 التقطيعات",         path: "/factory/orders/cuts"    },
+    { label: "🍧 الموس",             path: "/factory/orders/mousse"  },
+    { label: "🍮 الموس الفرنسي",      path: "/factory/orders/french-mousse" },
+    { label: "📈 تقرير الأوردرات",    path: "/factory/orders/report" }   // ⭐ الكارت الجديد
   ];
 
-  const handleProtectedNavigate = (path) => {
-    const password = prompt("من فضلك ادخل كلمة المرور للدخول:");
-    if (password === "1234" || password === "2991034") {
-      navigate(path);
-    } else {
-      alert("كلمة المرور غير صحيحة.");
-    }
+  const askPwd = (path) => {
+    const ok = ["1234", "2991034"].includes(prompt("من فضلك أدخل كلمة المرور:"));
+    ok ? navigate(path) : alert("كلمة المرور غير صحيحة.");
   };
 
   return (
@@ -29,14 +26,10 @@ const OrdersMenu = () => {
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📝 أوردرات التصنيع</h2>
 
-      <div className="factory-sections">
-        {sections.map((sec, idx) => (
-          <div
-            key={idx}
-            className="factory-card"
-            onClick={() => handleProtectedNavigate(sec.path)}
-          >
-            {sec.label}
+      <div className="cards-container" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:"15px" }}>
+        {sections.map(({label, path}) => (
+          <div key={path} className="factory-card" onClick={() => askPwd(path)}>
+            {label}
           </div>
         ))}
       </div>
