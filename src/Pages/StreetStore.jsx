@@ -1,20 +1,57 @@
-// src/pages/StreetStore.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
-  collection, addDoc, onSnapshot,
-  deleteDoc, updateDoc, doc, serverTimestamp, setDoc,
-  query, orderBy, getDocs, collectionGroup
+  collection, addDoc, onSnapshot, deleteDoc, updateDoc, doc,
+  serverTimestamp, setDoc, query, orderBy, getDocs, collectionGroup,
+  where, runTransaction
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
-const normalize = (s = "") => String(s).trim().replace(/\s+/g, " ").toLowerCase();
-const isAddition = (path) => path.includes("street-store");
-const isDeduction = (path) => path.includes("street-out");
+/* ===== util ===== */
+const normalize = (s = "") => s.trim().replace(/\s+/g, " ").toLowerCase();
 
+/* توحيد أسماء الوحدات */
+const mapUnit = (u) => ({
+  عدد: "qty", زجاجة: "qty",                 // «عدد» = زجاجة مفردة
+  جرام: "g",
+  كيلو: "kg", كيلوجرام: "kg",
+  كرتونة: "carton",
+  شكاره: "sack",
+  كيس: "bag",
+  وجبة: "meal",
+  "قالب شكولاته": "block"
+}[u] || u);
+
+/* جدول التحويلات */
+const CONV = {
+  /* وزن */
+  g: { kg: 1 / 1000 },
+  kg: { g: 1000 },
+
+  /* عبوات الزيت: 1 كرتونة = 12 زجاجة */
+  carton: { qty: 12 },
+  qty: { carton: 1 / 12 },
+
+  /* أمثلة إضافية (إن وجدت) */
+  sack: { kg: 50 },         // 1 شكارة = 50 كجم
+  bag: { g: 1000 },         // 1 كيس = 1 كجم
+  block: { g: 250 }         // 1 قالب شوكولاتة = 250 جم
+};
+
+/* تحويل كمية من وحدة لأخرى */
+const convert = (q, f, t) => {
+  if (f === t) return q;
+  const F = mapUnit(f);
+  const T = mapUnit(t);
+  if (CONV[F]?.[T]) return q * CONV[F][T];
+  if (CONV[T]?.[F]) return q / CONV[T][F];
+  throw Error(`لا تحويل من ${f} ↔ ${t}`);
+};
+
+/* ===== قوائم ثابتة ===== */
 const BASE_ITEMS = [
- "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
+"شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
   "حبيبه", "رموش", "لينزا", "جلاش", "نشابه", "صوابع", "بلح",
   "علب كريمة", "قشطوطة", "فادج", "كيس كاكو 1.750 جرام", "كيس جرانه",
   "عزيزية", "بسبوسة تركي", "شكارة سوداني مكسر", "ك بندق ني مكسر",
@@ -31,201 +68,247 @@ const BASE_ITEMS = [
   "ورق سلوفان موس", "علب جاتوه دسته", "دفتر ترانسفير ساده",
   "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن"
 ];
+const UNIT_MAP = [
+  "عدد", "زجاجة", "كرتونة",
+  "جرام", "كيلوجرام",
+  "شكاره", "كيس", "وجبة"
+];
 
+/* ===== المكوّن ===== */
 const StreetStore = () => {
-  const navigate = useNavigate();
+  const nav = useNavigate();
 
-  const [name, setName] = useState("");
-  const [quantity, setQty] = useState("");
-  const [unit, setUnit] = useState("عدد");
-  const [editId, setEditId] = useState(null);
+  /* حالات الإدخال والواجهة */
+  const [name, setName]   = useState("");
+  const [qty,  setQty]    = useState("");
+  const [unit, setUnit]   = useState("عدد");
+  const [isNew, setIsNew] = useState(false);
+
+  const [editId,  setEditId]  = useState(null);
+  const [editOld, setEditOld] = useState(null);
+
   const [items, setItems] = useState([]);
-  const [options, setOptions] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filtered, setFiltered] = useState([]);
-  const [totalQty, setTotalQty] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [opts,  setOpts]  = useState([]);
+  const [search, setSearch] = useState("");
+  const [flt, setFlt] = useState([]);
+  const [tot, setTot] = useState(null);
+
+  const [date, setDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
 
   const itemsCol = collection(db, "items");
 
-  /* تحميل أسماء الأصناف */
-  useEffect(() => {
-    const unsub = onSnapshot(itemsCol, (snap) => {
-      const extra = snap.docs.map((d) => d.id);
-      setOptions([...BASE_ITEMS, ...extra].filter((v, i, a) => a.indexOf(v) === i));
-    });
-    return () => unsub();
-  }, []);
+  /* تحميل قائمة الأصناف */
+  useEffect(() =>
+    onSnapshot(itemsCol, snap => {
+      const extra = snap.docs.map(d => d.id);
+      setOpts([...new Set([...BASE_ITEMS, ...extra])]);
+    }),
+    []
+  );
 
-  /* تحميل بيانات اليوم */
+  /* تحميل بيانات يوم محدد */
   useEffect(() => {
-    const dayDoc = doc(db, "street-store", selectedDate);
-    const subCol = collection(dayDoc, "items");
-    const q = query(subCol, orderBy("createdAt", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data(), date: selectedDate }));
+    const dayDoc = doc(db, "street-store", date);
+    const q = query(collection(dayDoc, "items"), orderBy("createdAt", "asc"));
+    return onSnapshot(q, snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setItems(data);
-      setFiltered(data);
+      setFlt(data);
     });
-    return () => unsub();
-  }, [selectedDate]);
+  }, [date]);
 
-  /* حساب الكمية السابقة قبل الحفظ */
-  const calcPrevTotal = async (nameKey) => {
-    let add = 0;
-    let out = 0;
-    const all = await getDocs(collectionGroup(db, "items"));
-    all.docs.forEach((snap) => {
-      const data = snap.data();
-      if (!data.nameKey && data.name) data.nameKey = normalize(data.name);
-      if (data.nameKey !== nameKey) return;
+  /* ========== دوال الحساب والإرسال ========== */
 
-      const parentDate = snap.ref.parent.parent.id; // YYYY-MM-DD
-      if (parentDate >= selectedDate) return; // نحتاج ما قبل اليوم الحالي فقط
-
-      const qty = parseFloat(data.quantity) || 0;
-      if (isAddition(snap.ref.path)) add += qty;
-      else if (isDeduction(snap.ref.path)) out += qty;
+  /* رصيد سابق (حتى اليوم) */
+  const calcPrev = async (key, tgtUnit) => {
+    let total = 0;
+    const snaps = await getDocs(
+      query(collectionGroup(db, "items"), where("nameKey", "==", key))
+    );
+    snaps.forEach(s => {
+      const parentDate = s.ref.parent.parent.id;
+      if (parentDate > date) return;              // بعد اليوم لا يحسب
+      const d = s.data();
+      total += convert(+d.quantity || 0, d.unit, tgtUnit);
     });
-    return add - out; // صافي السابق
+    return total;
   };
 
+  /* تحديث مستند الرصيد الجذري */
+  const updateBalance = async (key, deltaQ, deltaU) => {
+    const ref = doc(db, "street-store", key);
+    await runTransaction(db, async t => {
+      const snap = await t.get(ref);              // قراءة وحيدة
+      if (!snap.exists()) {
+        t.set(ref, { quantity: deltaQ, unit: deltaU });
+        return;
+      }
+      const bal   = snap.data();
+      const delta = convert(deltaQ, deltaU, bal.unit);
+      t.update(ref, { quantity: bal.quantity + delta });
+    });
+  };
+
+  /* إضافة صنف جديد لقائمة items */
+  const addItem = async () => {
+    const n = name.trim();
+    if (!n) return;
+    await setDoc(doc(itemsCol, n), { createdAt: serverTimestamp() });
+    alert(`✅ تم إضافة «${n}» للقائمة`);
+    setIsNew(false);
+  };
+
+  /* حفظ أو تعديل حركة اليوم */
   const handleSave = async () => {
-    const finalName = name.trim();
-    if (!finalName) return alert("أدخل اسم الصنف");
-    if (!quantity) return alert("أدخل الكمية");
+    const n = name.trim();
+    const q = +qty;
+    if (!n)  return alert("أدخل الاسم");
+    if (!q)  return alert("أدخل الكمية");
 
-    if (!options.includes(finalName)) {
-      await setDoc(doc(itemsCol, finalName), { createdAt: serverTimestamp() });
-    }
+    /* إضافة الصنف للقائمة إذا كان جديدًا */
+    if (!opts.includes(n))
+      await setDoc(doc(itemsCol, n), { createdAt: serverTimestamp() });
 
-    const nameKey = normalize(finalName);
-    const qtyNum = parseFloat(quantity);
-
-    const prevTotal = await calcPrevTotal(nameKey);
-    const currentTotal = prevTotal + qtyNum;
+    const key  = normalize(n);
+    const prev = await calcPrev(key, unit);
+    const curr = prev + q;
 
     const payload = {
-      name: finalName,
-      nameKey,
-      quantity: qtyNum,
-      unit,
-      prevQty: prevTotal,
-      currentQty: currentTotal,
-      createdAt: serverTimestamp(),
-      isEdited: !!editId,
+      name: n, nameKey: key, quantity: q, unit,
+      prevQty: prev, currentQty: curr,
+      createdAt: serverTimestamp(), isEdited: !!editId
     };
 
-    const dayDoc = doc(db, "street-store", selectedDate);
+    const dayDoc = doc(db, "street-store", date);
     const subCol = collection(dayDoc, "items");
+    const root   = doc(db, "street-store", key);
 
     if (editId) {
-      const pwd = prompt("كلمة مرور التعديل؟");
-      if (pwd !== "2991034") return alert("كلمة المرور غير صحيحة");
+      if (prompt("كلمة مرور التعديل؟") !== "2991034") return;
+      const delta = q - editOld.q;
+      await updateBalance(key, delta, unit);
       await updateDoc(doc(subCol, editId), payload);
-      setEditId(null);
+      setEditId(null); setEditOld(null);
     } else {
+      await updateBalance(key, q, unit);
       await addDoc(subCol, payload);
+      await setDoc(root, { quantity: curr, unit }, { merge: true });
     }
 
     setName(""); setQty(""); setUnit("عدد");
   };
 
-  const handleDelete = async (id) => {
-    const pwd = prompt("كلمة المرور؟");
-    if (pwd !== "2991034") return;
+  /* حذف حركة */
+  const handleDelete = async it => {
+    if (prompt("كلمة المرور؟") !== "2991034") return;
     if (!window.confirm("تأكيد الحذف؟")) return;
-
-    const dayDoc = doc(db, "street-store", selectedDate);
-    const subCol = collection(dayDoc, "items");
-    await deleteDoc(doc(subCol, id));
+    const day = doc(db, "street-store", date);
+    await deleteDoc(doc(collection(day, "items"), it.id));
+    await updateBalance(it.nameKey, -it.quantity, it.unit);
   };
 
-  const handleEdit = (it) => {
-    setName(it.name);
-    setQty(it.quantity);
-    setUnit(it.unit);
-    setEditId(it.id);
+  /* تحرير حركة */
+  const handleEdit = it => {
+    setName(it.name); setQty(it.quantity); setUnit(it.unit);
+    setEditId(it.id); setEditOld({ q: +it.quantity, unit: it.unit });
+    setIsNew(false);
   };
 
-  const handleSearch = () => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) { setFiltered(items); setTotalQty(null); return; }
-
-    const data = items.filter((it) => normalize(it.name).includes(term));
-    setFiltered(data);
-
-    const total = data.reduce((sum, it) => sum + parseFloat(it.quantity || 0), 0);
-    setTotalQty(total);
+  /* البحث */
+  const doSearch = () => {
+    const t = search.trim().toLowerCase();
+    if (!t) {
+      setFlt(items); setTot(null); return;
+    }
+    const list = items.filter(i => normalize(i.name).includes(t));
+    setFlt(list);
+    setTot(list.reduce((s, i) => s + (+i.quantity || 0), 0));
   };
 
+  /* onChange للاسم */
+  const onName = e => {
+    const v = e.target.value;
+    setName(v);
+    setIsNew(v.trim() && !opts.includes(v.trim()));
+  };
+
+  /* ========== واجهة المستخدم ========== */
   return (
     <div className="page-container" dir="rtl">
       <div className="top-bar">
-        <button className="back-button" onClick={() => navigate(-1)}>⬅ رجوع</button>
+        <button className="back-button" onClick={() => nav(-1)}>⬅ رجوع</button>
         <button onClick={() => window.print()}>🖨️ طباعة</button>
       </div>
 
       <h2 className="page-title">🏪 مخزن الشارع</h2>
 
-      {/* اختيار التاريخ */}
       <div className="form-row">
-        <label>📅 اختر التاريخ:</label>
-        <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+        <label>📅 التاريخ:</label>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} />
       </div>
 
-      {/* البحث */}
       <div className="form-row">
-        <input type="text" placeholder="ابحث باسم الصنف" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-        <button onClick={handleSearch}>🔍 بحث</button>
-        {totalQty !== null && (
-          <span style={{ marginRight: "1rem", color: "#007700", fontWeight: "bold" }}>
-            🧮 إجمالي الكمية: {totalQty}
+        <input type="text" placeholder="بحث" value={search} onChange={e => setSearch(e.target.value)} />
+        <button onClick={doSearch}>🔍 بحث</button>
+        {tot !== null && (
+          <span style={{ marginRight: "1rem", fontWeight: "bold" }}>
+            🧮 الإجمالي: {tot}
           </span>
         )}
       </div>
 
-      {/* نموذج الإدخال */}
       <div className="form-row">
-        <input list="items-list" placeholder="اسم الصنف" value={name} onChange={(e) => setName(e.target.value)} />
-        <datalist id="items-list">
-          {options.map((opt) => <option key={opt} value={opt} />)}
+        <input list="dlist" placeholder="اسم الصنف" value={name} onChange={onName} />
+        {isNew && (
+          <button type="button" style={{ marginInlineStart: "6px" }} onClick={addItem}>
+            ➕ إضافة
+          </button>
+        )}
+        <datalist id="dlist">
+          {opts.map(o => <option key={o} value={o} />)}
         </datalist>
 
-        <input type="number" placeholder="الكمية" value={quantity} onChange={(e) => setQty(e.target.value)} />
+        <input
+          type="number"
+          placeholder="الكمية"
+          value={qty}
+          onChange={e => setQty(e.target.value)}
+        />
 
-        <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-          <option>عدد</option><option>كيلو</option><option>شكارة</option>
-          <option>جرام</option><option>برميل</option><option>كيس</option>
-          <option>جردل</option>
+        <select value={unit} onChange={e => setUnit(e.target.value)}>
+          {UNIT_MAP.map(u => <option key={u}>{u}</option>)}
         </select>
 
         <button onClick={handleSave}>{editId ? "تحديث" : "إضافة"}</button>
       </div>
 
-      {/* جدول البيانات */}
       <table className="styled-table">
         <thead>
           <tr>
-            <th>الاسم</th>
-            <th>الكمية</th>
-            <th>السابق</th>
-            <th>الحالي</th>
-            <th>الوحدة</th>
-            <th>تعديل</th>
-            <th>حذف</th>
+            <th>الصنف</th><th>الكمية</th><th>السابق</th>
+            <th>الحالي</th><th>الوحدة</th><th>✏️</th><th>🗑️</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map((it) => (
-            <tr key={it.id} style={{ backgroundColor: it.isEdited ? "#ffcccc" : "transparent" }}>
-              <td>{it.name}</td>
-              <td>{it.quantity}</td>
-              <td>{it.prevQty ?? "-"}</td>
-              <td>{it.currentQty ?? "-"}</td>
-              <td>{it.unit}</td>
-              <td><button onClick={() => handleEdit(it)}>تعديل</button></td>
-              <td><button onClick={() => handleDelete(it.id)}>حذف</button></td>
+          {flt.map(i => (
+            <tr
+              key={i.id}
+              style={{
+                background:
+                  i.quantity < 0 ? "#0c0c0cff"
+                    : i.isEdited ? "#ffcaca"
+                    : "transparent"
+              }}
+            >
+              <td>{i.name}</td>
+              <td>{i.quantity}</td>
+              <td>{i.prevQty ?? "-"}</td>
+              <td>{i.currentQty ?? "-"}</td>
+              <td>{i.unit}</td>
+              <td><button onClick={() => handleEdit(i)}>✏️</button></td>
+              <td><button onClick={() => handleDelete(i)}>🗑️</button></td>
             </tr>
           ))}
         </tbody>
