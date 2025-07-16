@@ -40,6 +40,13 @@ const CleaningAndMaintenanceMain = () => {
           </div>
         ))}
       </div>
+
+      {/* زر التقرير الشهري */}
+      <div style={{ textAlign: "center", marginTop: "20px" }}>
+        <button className="report-btn" onClick={() => navigate("/monthly-report")}>
+          📊 التقرير الشهري
+        </button>
+      </div>
     </div>
   );
 };

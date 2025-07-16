@@ -46,6 +46,10 @@ import MaintenanceInternal              from "./Pages/MaintenanceInternal";
 import MaintenanceExternal              from "./Pages/MaintenanceExternal";
 
 import "./GlobalStyles.css";
+import MonthlyReport from "./Pages/MonthlyReport";
+import MonthlyRequiredReport from "./Pages/MonthlyRequiredReport";
+import IncomingMonthlyReport from "./Pages/IncomingMonthlyReport";
+import TruckMonthlyReport from "./Pages/TruckMonthlyReport";
 
 export default function App() {
   return (
@@ -79,9 +83,13 @@ export default function App() {
         {/* المصنع الفرعى */}
         <Route path="/factory/employees"       element={<Employees />} />
         <Route path="/factory/required-items" element={<RequiredItems />} />
+        <Route path="/required-monthly-report" element={<MonthlyRequiredReport />} />
         <Route path="/factory/truck-loading"   element={<TruckMenu />} />
         <Route path="/factory/truck-loading/:branch" element={<TruckLoadingPage />} />
+        <Route path="/truck-monthly-report" element={<TruckMonthlyReport/>} />
+
         <Route path="/factory/incoming" element={<IncomingGoods />} />
+        <Route path="/incoming-monthly-report" element={<IncomingMonthlyReport />} />
 
         {/* أوامر الإنتاج */}
         <Route path="/factory/orders"            element={<OrdersMenu />} />
@@ -100,6 +108,8 @@ export default function App() {
         <Route path="/cleaning"              element={<Cleaning />} />
         <Route path="/maintenance-internal"  element={<MaintenanceInternal />} />
         <Route path="/maintenance-external"  element={<MaintenanceExternal />} />
+        <Route path="/monthly-report" element={<MonthlyReport />} />
+
 
         {/* المحلات */}
         <Route path="/shops" element={<Shops />} />
