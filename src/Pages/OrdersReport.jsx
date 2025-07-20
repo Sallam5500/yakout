@@ -1,35 +1,33 @@
-// src/pages/OrdersReport.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import {
   collection,
-  onSnapshot,
   query,
   where,
-  orderBy,
+  getDocs,
 } from "firebase/firestore";
 
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 import "../GlobalStyles.css";
 
-/* كل كولكشنات الأوردر */
+/* بدون التقطيعات */
 const ORDER_COLLECTIONS = [
-  "orders-eastern",
-  "orders-torte",
-  "orders-gateau",
-  "orders-cuts",
-  "orders-mousse",
-  "orders-french-mousse",
+  { name: "orders-eastern", label: "الحلويات الشرقية" },
+  { name: "orders-torte", label: "التورت" },
+  { name: "orders-gateau", label: "الجاتوه" },
+  { name: "orders-mousse", label: "الموس" },
+  { name: "orders-french-mousse", label: "الموس الفرنسي" },
 ];
 
 const today = new Date().toISOString().split("T")[0];
@@ -37,69 +35,107 @@ const today = new Date().toISOString().split("T")[0];
 export default function OrdersReport() {
   const nav = useNavigate();
   const [from, setFrom] = useState("2025-01-01");
-  const [to, setTo]     = useState(today);
-  const [data, setData] = useState([]);
+  const [to, setTo] = useState(today);
+  const [itemsData, setItemsData] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(""); // ✅ إضافة البحث
 
-  /* === مستمع لحظي يدمج كل الكولكشنات في الفترة المطلوبة === */
   useEffect(() => {
-    /* خريطة لتجميع الكميات حسب التاريخ */
-    const dateMap = {};
+    const fetchAllOrders = async () => {
+      const itemMap = {};
 
-    /* مصفوفة unsub حتى نفصل المستمعين عند تغيير الفترة */
-    const unsubs = ORDER_COLLECTIONS.map((colName) => {
-      const q = query(
-        collection(db, colName),
-        where("date", ">=", from),
-        where("date", "<=", to),
-        orderBy("date")
-      );
+      for (const { name, label } of ORDER_COLLECTIONS) {
+        const q = query(
+          collection(db, name),
+          where("date", ">=", from),
+          where("date", "<=", to)
+        );
 
-      return onSnapshot(q, (snap) => {
-        /* أعد ضبط map ثم أدمج كل اللقطات مجددًا */
-        Object.keys(dateMap).forEach((d) => (dateMap[d] = 0));
-        ORDER_COLLECTIONS.forEach((c) => (dateMap[c] = dateMap[c])); // حفاظ
+        const snap = await getDocs(q);
+        snap.forEach((doc) => {
+          const { item, qty = 0 } = doc.data();
+          if (!item) return;
 
-        snap.docs.forEach((d) => {
-          const { date, qty = 0 } = d.data();
-          dateMap[date] = (dateMap[date] || 0) + qty;
+          if (!itemMap[item]) {
+            itemMap[item] = { name: item, section: label, total: 0 };
+          }
+          itemMap[item].total += Number(qty);
         });
+      }
 
-        /* حوّل الخريطة إلى Array مرتبة */
-        const arr = Object.entries(dateMap)
-          .map(([date, qty]) => ({ date, qty }))
-          .sort((a, b) => (a.date > b.date ? 1 : -1));
+      const result = Object.values(itemMap);
+      setItemsData(result);
+    };
 
-        setData(arr);
-      });
-    });
-
-    return () => unsubs.forEach((u) => u && u());
+    fetchAllOrders();
   }, [from, to]);
+
+  // ✅ فلترة البيانات حسب البحث
+  const filteredData = itemsData.filter(
+    (row) =>
+      row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      row.section.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="factory-page" dir="rtl">
-      <button className="back-btn" onClick={() => nav(-1)}>
-        ⬅ رجوع
-      </button>
-      <h2 className="page-title">📈 كميات الأوردرات عبر الأيام</h2>
+      <button className="back-btn" onClick={() => nav(-1)}>⬅ رجوع</button>
+      <h2 className="page-title">📊 تقرير إجمالي أوردرات التصنيع</h2>
 
-      {/* مدى زمني */}
+      {/* فلترة بالتاريخ */}
       <div className="form-row">
         <label>من:</label>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         <label>إلى:</label>
-        <input type="date" value={to}   onChange={(e) => setTo(e.target.value)} />
+        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
 
-      <div style={{ width: "100%", height: 400 }}>
+      {/* 🔍 مربع البحث */}
+      <div className="form-row">
+        <label>بحث:</label>
+        <input
+          type="text"
+          placeholder="ابحث باسم الصنف أو القسم..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* جدول مجمع */}
+      <div className="table-container">
+        <table className="styled-table">
+          <thead>
+            <tr>
+              <th>الصنف</th>
+              <th>القسم</th>
+              <th>إجمالي الكمية</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.length ? filteredData.map((row, index) => (
+              <tr key={index}>
+                <td>{row.name}</td>
+                <td>{row.section}</td>
+                <td>{row.total}</td>
+              </tr>
+            )) : <tr><td colSpan="3">لا توجد بيانات في هذه الفترة أو لا تطابق البحث.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {/* رسم بياني */}
+      <div style={{ width: "100%", height: 400, marginTop: "2rem" }}>
         <ResponsiveContainer>
-          <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+          <BarChart
+            data={filteredData}
+            margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
+            <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
-            <Line type="monotone" dataKey="qty" strokeWidth={2} />
-          </LineChart>
+            <Legend />
+            <Bar dataKey="total" fill="#0077cc" name="إجمالي الكمية" />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>

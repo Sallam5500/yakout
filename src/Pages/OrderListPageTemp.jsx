@@ -1,4 +1,4 @@
-// src/pages/OrderListPageTemp.jsx
+// ... باقي الاستيرادات نفسها
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db } from "../firebase";
@@ -17,30 +17,22 @@ import {
 } from "firebase/firestore";
 import "../GlobalStyles.css";
 
-/* وحدات قياس شائعة فى المصنع */
-const UNITS = ["عدد", "صاج", "صنية", "برنيكه", "سيرڤيز"];
+const UNITS = ["عدد", "صاج", "صنية", "برنيكه", "سرفيس", "بلاكة"];
 
-/**
- * صفحة موحّدة لعرض و إدارة أوردرات الإنتاج.
- * props:
- *   collectionName  → اسم كولكشن Firestore (مثل orders‑eastern)
- *   title           → العنوان الظاهر أعلى الصفحة
- */
 export default function OrderListPageTemp({ collectionName, title }) {
   const nav = useNavigate();
   const { date: urlDate } = useParams();
   const today = new Date().toISOString().split("T")[0];
 
-  /* ===== state ===== */
   const [date, setDate] = useState(urlDate || today);
-  const [allOrders, setAllOrders] = useState([]);   // كل الأيام
+  const [allOrders, setAllOrders] = useState([]);
   const [item, setItem] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [editId, setEditId] = useState(null);
   const [nameOpts, setNameOpts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  /* ===== realtime listener (بدون فلتر تاريخ لالتقاط كل التحديثات) ===== */
   useEffect(() => {
     const q = query(collection(db, collectionName), orderBy("date", "desc"), orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, (snap) => {
@@ -51,7 +43,6 @@ export default function OrderListPageTemp({ collectionName, title }) {
     return () => unsub();
   }, [collectionName]);
 
-  /* ===== معالجة الإضافة / التعديل ===== */
   const handleSave = async () => {
     const clean = item.trim();
     const qtyNum = parseFloat(qty);
@@ -61,8 +52,12 @@ export default function OrderListPageTemp({ collectionName, title }) {
       await updateDoc(doc(db, collectionName, editId), { item: clean, qty: qtyNum, unit });
       setEditId(null);
     } else {
-      // دمج إذا كان موجود نفس الصنف والوحدة فى نفس اليوم
-      const qSame = query(collection(db, collectionName), where("date", "==", date), where("item", "==", clean), where("unit", "==", unit));
+      const qSame = query(
+        collection(db, collectionName),
+        where("date", "==", date),
+        where("item", "==", clean),
+        where("unit", "==", unit)
+      );
       const sameSnap = await getDocs(qSame);
       if (!sameSnap.empty) {
         const ref = sameSnap.docs[0].ref;
@@ -79,10 +74,17 @@ export default function OrderListPageTemp({ collectionName, title }) {
       }
     }
 
-    setItem(""); setQty(""); setUnit("عدد");
+    setItem("");
+    setQty("");
+    setUnit("عدد");
   };
 
-  const loadForEdit = (o) => { setItem(o.item); setQty(o.qty); setUnit(o.unit); setEditId(o.id); };
+  const loadForEdit = (o) => {
+    setItem(o.item);
+    setQty(o.qty);
+    setUnit(o.unit);
+    setEditId(o.id);
+  };
 
   const handleDelete = async (id) => {
     if (prompt("كلمة المرور؟") !== "2991034") return;
@@ -90,8 +92,9 @@ export default function OrderListPageTemp({ collectionName, title }) {
     if (editId === id) setEditId(null);
   };
 
-  /* ===== جدول اليوم المختار ===== */
-  const ordersToday = allOrders.filter((o) => o.date === date);
+  const ordersToday = allOrders.filter(
+    (o) => o.date === date && o.item.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="factory-page" dir="rtl">
@@ -102,6 +105,17 @@ export default function OrderListPageTemp({ collectionName, title }) {
       <div className="form-row">
         <label>📅 التاريخ:</label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+
+      {/* بحث بالاسم */}
+      <div className="form-row">
+        <label>🔍 بحث بالصنف:</label>
+        <input
+          type="text"
+          placeholder="اكتب جزء من اسم الصنف..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
       {/* إدخال أوردر */}
