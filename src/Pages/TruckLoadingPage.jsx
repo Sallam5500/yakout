@@ -1,11 +1,13 @@
+// src/pages/TruckLoadingPage.jsx
 import React, { useState, useEffect } from "react";
 import {
   collection, addDoc, deleteDoc, doc, updateDoc,
-  onSnapshot, serverTimestamp, setDoc,
-  query, orderBy
+  onSnapshot, serverTimestamp, setDoc
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate, useParams } from "react-router-dom";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import "../GlobalStyles.css";
 
 const BRANCH_TITLES = {
@@ -16,8 +18,7 @@ const BRANCH_TITLES = {
 
 const UNITS = ["عدد", "برنيكه", "سيرفيز", "صاج", "قطعه"];
 
-const ITEM_OPTIONS = [
-  "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
+const ITEM_OPTIONS = [ "كنافه كريمة", "لينزا", "مدلعة", "صاج عزيزيه", "بسبوسة ساده", "بسبوسة بندق",
   "جلاش كريمة", "بسبوسة قشطة", "بسبوسة لوتس", "كنافة قشطة", "جلاش", "بقلاوة",
   "جلاش حجاب", "سوارية ساده", "سوارية مكسرات", "بصمة سادة", "بصمة مكسرات",
   "بسيمة", "حبيبة", "رموش", "اسكندراني", "كنافة عش", "بصمة كاجو", "بلح ساده",
@@ -32,11 +33,10 @@ const ITEM_OPTIONS = [
   "مهلبية", "كاس موس", "كاسات فاكهة", "كوبيات جيلاتين", "جاتوه كبير", "جاتوه صغير",
   "التشكلات", "كاب توت", "موس قديم", "بولا", "فاني كيك", "طبقات 22", "30*30",
   "35*35", "مانجا مستطيل", "موس فرنسوي", "كارت كيك", "فاكهة جديد", "فلوش جديد",
-  "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا"
-];
+  "بيستاشيو مستطيل", "كب بيستاشيو", "تورتة مانجا"];
 
 const TruckLoadingPage = () => {
-  const { branch } = useParams(); // barka / qwesna / receive
+  const { branch } = useParams();
   const collectionName = `truck-loading-${branch}`;
   const pageTitle = BRANCH_TITLES[branch] || "تحميل العربيات";
 
@@ -50,6 +50,9 @@ const TruckLoadingPage = () => {
   const [note, setNote] = useState("");
   const [search, setSearch] = useState("");
 
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const formattedDate = selectedDate.toISOString().split("T")[0];
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,12 +64,12 @@ const TruckLoadingPage = () => {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, collectionName), orderBy("createdAt", "asc"));
-    const unsub = onSnapshot(q, (snap) => {
+    const path = collection(db, collectionName, formattedDate, "records");
+    const unsub = onSnapshot(path, (snap) => {
       setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
-  }, [collectionName]);
+  }, [collectionName, formattedDate]);
 
   const handleAddNewItem = async () => {
     const name = newItemName.trim();
@@ -81,14 +84,15 @@ const TruckLoadingPage = () => {
     e.preventDefault();
     if (!item || !quantity) return alert("أدخل الصنف والكمية");
 
-    await addDoc(collection(db, collectionName), {
+    const docRef = collection(db, collectionName, formattedDate, "records");
+    await addDoc(docRef, {
       item,
       quantity: Number(quantity),
       unit,
       note,
       createdAt: serverTimestamp(),
       updated: false,
-      branch, // ✅ مهم جدًا علشان التقرير يشتغل صح
+      branch,
     });
 
     setItem("");
@@ -100,7 +104,7 @@ const TruckLoadingPage = () => {
   const handleDelete = async (id) => {
     const pwd = prompt("ادخل كلمة المرور للحذف:");
     if (!["1234", "2991034"].includes(pwd)) return alert("كلمة المرور خاطئة");
-    await deleteDoc(doc(db, collectionName, id));
+    await deleteDoc(doc(db, collectionName, formattedDate, "records", id));
   };
 
   const handleEdit = async (rec) => {
@@ -114,7 +118,7 @@ const TruckLoadingPage = () => {
 
     if (!newItem || !newQty || !newUnit) return;
 
-    await updateDoc(doc(db, collectionName, rec.id), {
+    await updateDoc(doc(db, collectionName, formattedDate, "records", rec.id), {
       item: newItem,
       quantity: Number(newQty),
       unit: newUnit,
@@ -137,6 +141,16 @@ const TruckLoadingPage = () => {
       <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
       <h2 className="page-title">🚚 {pageTitle}</h2>
       <button className="print-btn" onClick={() => window.print()}>🖨️ طباعة</button>
+
+      <div className="form-row">
+        <label>اختر التاريخ: </label>
+        <DatePicker
+          selected={selectedDate}
+          onChange={(date) => setSelectedDate(date)}
+          dateFormat="yyyy-MM-dd"
+          className="date-picker"
+        />
+      </div>
 
       <form onSubmit={handleAdd} className="form-row">
         {isAddingNewItem ? (
@@ -176,7 +190,6 @@ const TruckLoadingPage = () => {
         />
         <select value={unit} onChange={(e) => setUnit(e.target.value)}>
           {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-          <option value="أخرى">وحدة أخرى...</option>
         </select>
         <input
           type="text"
@@ -190,11 +203,9 @@ const TruckLoadingPage = () => {
       <input
         className="search" type="text" placeholder="بحث بالاسم أو التاريخ"
         value={search} onChange={(e) => setSearch(e.target.value)}
-        style={{
-          padding: "10px", border: "none", borderRadius: "6px",
-          marginBottom: "15px", fontSize: "16px", width: "300px", textAlign: "center"
-        }}
       />
+
+      <h3 style={{ marginTop: "15px" }}>📅 تحميلات يوم {formattedDate}</h3>
 
       <table className="styled-table">
         <thead>
