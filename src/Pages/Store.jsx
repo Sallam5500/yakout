@@ -1,15 +1,15 @@
 // src/pages/Store.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./Store.css";
+import "../GlobalStyles.css";
 
 export default function Store() {
   const navigate = useNavigate();
 
   return (
     <div className="store-page">
-      <button className="back-btn" onClick={() => navigate(-1)}>⬅ رجوع</button>
-      <h2>المخزن الرئيسي</h2>
+      <button className="back-btn text-center" onClick={() => navigate(-1)}>⬅ رجوع</button>
+      <h2 className="text-center">المخزن الرئيسي</h2>
 
       <div className="cards-container">
         {/* البضاعة */}

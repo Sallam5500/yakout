@@ -384,3 +384,6 @@ h2, .page-title {
   transition: 0.3s ease-in-out;
 }
 
+.text-center{
+  text-align: center;
+}

@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 
 const predefinedItems = [
-"شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
+  "شكارة كريمه", "بسبوسة", "كيس بندق ني بسبوسة", "هريسة", "بسيمة",
   "حبيبه", "رموش", "لينزا", "جلاش", "نشابه", "صوابع", "بلح",
   "علب كريمة", "قشطوطة", "فادج", "كيس كاكو 1.750 جرام", "كيس جرانه",
   "عزيزية", "بسبوسة تركي", "شكارة سوداني مكسر", "ك بندق ني مكسر",
@@ -34,7 +34,7 @@ const predefinedItems = [
   "دفتر ترنسفير الوان", "ملبن", "وجبه سيرب", "بكر استرتش",
   "ورق سلوفان موس", "علب جاتوه دسته", "دفتر ترانسفير ساده",
   "كرتونة بكين بودر", "ستان 2سم", "جيلي شفاف", "جيلي سخن"
-]
+];
 
 const unitsList = [
   "عدد", "شكاره", "جردل", "كيلو", "كيس",
@@ -49,12 +49,13 @@ export default function StockPage() {
   const [quantity, setQty] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [search, setSearch] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]); // 🗓️ تاريخ اليوم
 
   /* === جلب البيانات لحظيًا === */
   useEffect(() => {
-    const q = query(collection(db, "storeItems"), orderBy("date","asc"), orderBy("createdAt","asc"));
+    const q = query(collection(db, "storeItems"), orderBy("date", "asc"), orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, snap => {
-      setStock(snap.docs.map(d=>({id:d.id, ...d.data()})));
+      setStock(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, []);
@@ -65,21 +66,21 @@ export default function StockPage() {
     const qtyNum = parseInt(quantity);
     if (!clean || !qtyNum) return alert("أدخل الاسم والكمية");
 
-    const date = new Date().toLocaleDateString("fr-CA");
-
-    // حساب الإجمالي السابق لهذا الصنف + الوحدة (لكل الأيام)
-    const qPrev = query(collection(db,"storeItems"), where("name","==",clean), where("unit","==",unit));
+    const qPrev = query(collection(db, "storeItems"), where("name", "==", clean), where("unit", "==", unit));
     const prevSnap = await getDocs(qPrev);
-    const prevTotal = prevSnap.docs.reduce((s,d)=> s + (d.data().currentQty ?? d.data().quantity ?? 0), 0);
+    const prevTotal = prevSnap.docs.reduce((s, d) => s + (d.data().currentQty ?? d.data().quantity ?? 0), 0);
 
     const currentTotal = prevTotal + qtyNum;
 
-    // هل يوجد سجل لنفس اليوم؟
-    const qToday = query(collection(db,"storeItems"), where("name","==",clean), where("unit","==",unit), where("date","==",date));
+    const qToday = query(
+      collection(db, "storeItems"),
+      where("name", "==", clean),
+      where("unit", "==", unit),
+      where("date", "==", date)
+    );
     const todaySnap = await getDocs(qToday);
 
     if (!todaySnap.empty) {
-      // حدث السطر الحالى
       const docRef = todaySnap.docs[0].ref;
       await updateDoc(docRef, {
         quantity: (todaySnap.docs[0].data().quantity || 0) + qtyNum,
@@ -87,7 +88,7 @@ export default function StockPage() {
         currentQty: currentTotal,
       });
     } else {
-      await addDoc(collection(db,"storeItems"), {
+      await addDoc(collection(db, "storeItems"), {
         name: clean,
         quantity: qtyNum,
         unit,
@@ -105,34 +106,44 @@ export default function StockPage() {
   /* === حذف سجل مفرد === */
   const handleDelete = async (id) => {
     if (prompt("كلمة المرور؟") !== "2991034") return;
-    await deleteDoc(doc(db,"storeItems",id));
+    await deleteDoc(doc(db, "storeItems", id));
   };
 
-  /* === بحث بسيط === */
-  const show = stock.filter(it => it.name.includes(search) || it.date.includes(search));
+  /* === فلترة حسب التاريخ والبحث === */
+  const show = stock.filter(it =>
+    (it.name.includes(search) || it.date.includes(search)) &&
+    it.date === date
+  );
 
   return (
     <div className="factory-page">
-      <button className="back-btn" onClick={()=>nav(-1)}>⬅ رجوع</button>
+      <button className="back-btn" onClick={() => nav(-1)}>⬅ رجوع</button>
       <h2 className="page-title">📦 البضاعة (المخزون الرئيسي)</h2>
 
       <div className="form-row">
-        <select value={name} onChange={e=>setName(e.target.value)}>
+        <input
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          style={{ padding: "5px", fontSize: "16px", borderRadius: "8px" }}
+        />
+
+        <select value={name} onChange={e => setName(e.target.value)}>
           <option value="">اختر من القائمة</option>
-          {predefinedItems.map(n=><option key={n}>{n}</option>)}
+          {predefinedItems.map(n => <option key={n}>{n}</option>)}
         </select>
 
-        <input placeholder="أو اكتب صنف جديد" value={name} onChange={e=>setName(e.target.value)} />
-        <input type="number" placeholder="الكمية" value={quantity} onChange={e=>setQty(e.target.value)} />
-        <select value={unit} onChange={e=>setUnit(e.target.value)}>
-          {unitsList.map(u=><option key={u}>{u}</option>)}
+        <input placeholder="أو اكتب صنف جديد" value={name} onChange={e => setName(e.target.value)} />
+        <input type="number" placeholder="الكمية" value={quantity} onChange={e => setQty(e.target.value)} />
+        <select value={unit} onChange={e => setUnit(e.target.value)}>
+          {unitsList.map(u => <option key={u}>{u}</option>)}
         </select>
         <button onClick={handleAdd}>➕ إضافة للمخزن</button>
       </div>
 
       <div className="form-row">
-        <input className="search" placeholder="🔍 ابحث بالاسم أو التاريخ" value={search} onChange={e=>setSearch(e.target.value)} />
-        <button onClick={()=>window.print()}>🖨️ طباعة</button>
+        <input className="search" placeholder="🔍 ابحث بالاسم أو التاريخ" value={search} onChange={e => setSearch(e.target.value)} />
+        <button onClick={() => window.print()}>🖨️ طباعة</button>
       </div>
 
       <table className="styled-table">
@@ -143,13 +154,13 @@ export default function StockPage() {
           </tr>
         </thead>
         <tbody>
-          {show.length ? show.map(it=>(
+          {show.length ? show.map(it => (
             <tr key={it.id}>
               <td>{it.date}</td><td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
               <td>{it.prevQty ?? "-"}</td><td>{it.currentQty ?? "-"}</td>
-              <td><button onClick={()=>handleDelete(it.id)}>🗑️</button></td>
+              <td><button onClick={() => handleDelete(it.id)}>🗑️</button></td>
             </tr>
-          )) : <tr><td colSpan="7">لا توجد بيانات.</td></tr>}
+          )) : <tr><td colSpan="7">لا توجد بيانات لليوم المختار.</td></tr>}
         </tbody>
       </table>
     </div>
