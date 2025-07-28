@@ -1,4 +1,3 @@
-// src/pages/StockPage.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../GlobalStyles.css";
@@ -43,15 +42,16 @@ const unitsList = [
 
 export default function StockPage() {
   const nav = useNavigate();
+  const [editId, setEditId] = useState(null);
+  const [editOld, setEditOld] = useState(0);
 
   const [stock, setStock] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQty] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [search, setSearch] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]); // 🗓️ تاريخ اليوم
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  /* === جلب البيانات لحظيًا === */
   useEffect(() => {
     const q = query(collection(db, "storeItems"), orderBy("date", "asc"), orderBy("createdAt", "asc"));
     const unsub = onSnapshot(q, snap => {
@@ -60,7 +60,6 @@ export default function StockPage() {
     return () => unsub();
   }, []);
 
-  /* === إضافة / دمج مخزون اليوم === */
   const handleAdd = async () => {
     const clean = name.trim();
     const qtyNum = parseInt(quantity);
@@ -69,7 +68,6 @@ export default function StockPage() {
     const qPrev = query(collection(db, "storeItems"), where("name", "==", clean), where("unit", "==", unit));
     const prevSnap = await getDocs(qPrev);
     const prevTotal = prevSnap.docs.reduce((s, d) => s + (d.data().currentQty ?? d.data().quantity ?? 0), 0);
-
     const currentTotal = prevTotal + qtyNum;
 
     const qToday = query(
@@ -103,15 +101,21 @@ export default function StockPage() {
     setName(""); setQty(""); setUnit("عدد"); setSearch("");
   };
 
-  /* === حذف سجل مفرد === */
   const handleDelete = async (id) => {
     if (prompt("كلمة المرور؟") !== "2991034") return;
     await deleteDoc(doc(db, "storeItems", id));
   };
 
-  /* === فلترة حسب التاريخ والبحث === */
+  const handleEdit = (item) => {
+    setName(item.name);
+    setQty(item.quantity);
+    setUnit(item.unit);
+    setEditId(item.id);
+    setEditOld(item.quantity);
+  };
+
   const show = stock.filter(it =>
-    (it.name.includes(search) || it.date.includes(search)) &&
+    (it.name?.includes(search) || it.date?.includes(search)) &&
     it.date === date
   );
 
@@ -150,7 +154,7 @@ export default function StockPage() {
         <thead>
           <tr>
             <th>📅 التاريخ</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th>
-            <th>السابق</th><th>الحالي</th><th>حذف</th>
+            <th>السابق</th><th>الحالي</th><th>حذف</th><th>تعديل</th>
           </tr>
         </thead>
         <tbody>
@@ -159,8 +163,9 @@ export default function StockPage() {
               <td>{it.date}</td><td>{it.name}</td><td>{it.quantity}</td><td>{it.unit}</td>
               <td>{it.prevQty ?? "-"}</td><td>{it.currentQty ?? "-"}</td>
               <td><button onClick={() => handleDelete(it.id)}>🗑️</button></td>
+              <td><button onClick={() => handleEdit(it)}>✏️</button></td>
             </tr>
-          )) : <tr><td colSpan="7">لا توجد بيانات لليوم المختار.</td></tr>}
+          )) : <tr><td colSpan="8">لا توجد بيانات لليوم المختار.</td></tr>}
         </tbody>
       </table>
     </div>

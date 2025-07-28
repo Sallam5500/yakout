@@ -1,42 +1,50 @@
-// src/pages/StockSummary.jsx
-
 import React, { useState, useEffect } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import "../GlobalStyles.css";
 
 const StockSummary = () => {
-  const [items, setItems] = useState([]);
+  const [summary, setSummary] = useState([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const q = query(collection(db, "storeItems"), orderBy("name"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-        quantity: doc.data().quantity,
+    const unsubscribe = onSnapshot(collection(db, "storeItems"), (snapshot) => {
+      const data = snapshot.docs.map((doc) => doc.data());
+
+      const aggregated = {};
+
+      data.forEach((item) => {
+        const name = item.name;
+        const qty = Number(item.quantity) || 0;
+
+        if (aggregated[name]) {
+          aggregated[name] += qty;
+        } else {
+          aggregated[name] = qty;
+        }
+      });
+
+      const result = Object.entries(aggregated).map(([name, quantity]) => ({
+        name,
+        quantity,
       }));
-      setItems(data);
+
+      setSummary(result);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const filtered = items.filter((item) =>
+  const filtered = summary.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="factory-page" dir="rtl">
-      {/* زر الرجوع */}
-      <button className="back-btn" onClick={() => window.history.back()}>
-        ⬅ رجوع
-      </button>
+      <button className="back-btn" onClick={() => window.history.back()}>⬅ رجوع</button>
 
-      <h2 className="page-title">📦 ملخص الكمية المتوفرة فقط</h2>
+      <h2 className="page-title">📦 ملخص الكمية الإجمالية لكل صنف</h2>
 
-      {/* البحث */}
       <div className="form-row">
         <input
           type="text"
@@ -47,18 +55,17 @@ const StockSummary = () => {
         />
       </div>
 
-      {/* جدول */}
       <table className="styled-table">
         <thead>
           <tr>
             <th>📦 الصنف</th>
-            <th>📊 الكمية المتوفرة</th>
+            <th>📊 إجمالي الكمية</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length ? (
-            filtered.map((item) => (
-              <tr key={item.id}>
+            filtered.map((item, index) => (
+              <tr key={index}>
                 <td>{item.name}</td>
                 <td>{item.quantity}</td>
               </tr>

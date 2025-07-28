@@ -237,12 +237,12 @@ const StreetStore = () => {
   /* ========== واجهة المستخدم ========== */
   return (
     <div className="page-container" dir="rtl">
-      <div className="top-bar">
+      <div className="top-bar  text-center">
         <button className="back-button" onClick={() => nav(-1)}>⬅ رجوع</button>
         <button onClick={() => window.print()}>🖨️ طباعة</button>
       </div>
 
-      <h2 className="page-title">🏪 مخزن الشارع</h2>
+      <h2 className="page-title text-center">🏪 مخزن الشارع</h2>
 
       <div className="form-row">
         <label>📅 التاريخ:</label>
@@ -307,7 +307,8 @@ const StreetStore = () => {
               <td>{i.prevQty ?? "-"}</td>
               <td>{i.currentQty ?? "-"}</td>
               <td>{i.unit}</td>
-              <td><button onClick={() => handleEdit(i)}>✏️</button></td>
+            <td><button onClick={() => handleEdit(i)}>✏️</button></td>
+
               <td><button onClick={() => handleDelete(i)}>🗑️</button></td>
             </tr>
           ))}
